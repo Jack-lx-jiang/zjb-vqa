@@ -146,7 +146,6 @@ class Dataset():
             vid_dir = self.base_dir+'/'+phase
             for i, v in enumerate(os.listdir(vid_dir)):
                 video = imageio.get_reader(vid_dir+'/'+str(v), 'ffmpeg')
-                video_len = video.get_length()
                 print(vid_dir+'/'+str(v), i)
                 vid_descriptors = np.zeros((999*batch_size, 2048))
                 frame_count = 0
@@ -155,13 +154,16 @@ class Dataset():
                 for b in range(999):
                     batch = np.zeros((batch_size, 224, 224, 3))
                     for t in range(batch_size):
-                        if frame_ind < video_len-1:
-                            frame = transform.resize(video.get_data(frame_ind),(224,224))
-                            batch[t] = frame
-                            frame_count += 1
-                        else:
+                        try:
+                            frame = video.get_data(frame_ind)
+                        except (imageio.core.CannotReadFrameError, IndexError):
                             stop = True
                             break
+                        else:
+                            frame = transform.resize(frame,(224,224))
+                            batch[t] = frame
+                            frame_count += 1
+
                         frame_ind += interval
                     batch[:, :, :, 0] -= 103.939
                     batch[:, :, :, 1] -= 116.779

@@ -8,7 +8,7 @@ base_dir = 'dataset'
 filename = base_dir+'/train/'+'ZJL1.mp4'
 vid = imageio.get_reader(filename,  'ffmpeg')
 print(vid.get_length())
-print(vid.format)
+# print(vid.format)
 im = vid.get_data(vid.get_length()-2)
 # print(im.shape)
 # im = transform.resize(im,(224,224))
