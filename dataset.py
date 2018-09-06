@@ -8,54 +8,7 @@ from keras.applications.resnet50 import ResNet50
 from keras.models import Model
 import pickle as p
 import os
-
-
-class Dictionary(object):
-    def __init__(self, ans2idx=None, idx2ans=None):
-        if ans2idx is None:
-            ans2idx = {}
-        if idx2ans is None:
-            idx2ans = []
-        self.ans2idx = ans2idx
-        self.idx2ans = idx2ans
-
-    @property
-    def ntoken(self):
-        return len(self.ans2idx)
-
-    @property
-    def padding_idx(self):
-        return len(self.ans2idx)
-
-    def tokenize(self, ans, add_ans=False):
-        tokens = []
-        if add_ans:
-            for a in ans:
-                tokens.append(self.add_ans(a))
-        else:
-            for a in ans:
-                tokens.append(self.ans2idx[a])
-        return tokens
-
-    def dump_to_file(self, path):
-        p.dump([self.ans2idx, self.idx2ans], open(path, 'wb'))
-        print('dictionary dumped to %s' % path)
-
-    @classmethod
-    def load_from_file(cls, path):
-        print('loading dictionary from %s' % path)
-        ans2idx, idx2ans = p.load(open(path, 'rb'))
-        d = cls(ans2idx, idx2ans)
-        return d
-
-    def add_ans(self, ans):
-        if ans not in self.ans2idx:
-            self.idx2ans.append(ans)
-            self.ans2idx[ans] = len(self.idx2ans) - 1
-        return self.ans2idx[ans]
-
-    def __len__(self):
-        return len(self.idx2ans)
+from mapping import AnswerMapping
 
 
 class Dataset():
@@ -66,7 +19,7 @@ class Dataset():
     feature_dir = base_dir + '/feature'
 
     def __init__(self):
-        self.dict = Dictionary()
+        self.dict = AnswerMapping()
         vid, questions, answers = self.preprocess_text(self.phases[0])
         self.dict.tokenize(answers, True)
         self.tokenizer = Tokenizer(self.vocabulary_size)
