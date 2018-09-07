@@ -1,6 +1,11 @@
 language: python
 python:
+ - '3.5'
  - '3.6'
 cache: pip
-install: pip install -r requirements.txt
+install:
+ - pip install -r requirements.txt
+ - pip install pycodestyle
+before_script:
+ - pycodestyle --max-line-length=120 .
 script: python -m pytest
