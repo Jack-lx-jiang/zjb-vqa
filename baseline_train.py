@@ -1,14 +1,14 @@
 import pickle as p
-import numpy as np
+
 from keras import backend as K
-from keras.layers import Input, TimeDistributed, Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda
-from keras.layers.core import Dense, Dropout
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.layers import Input, Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda
+from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
-from keras.activations import sigmoid
+from keras.losses import binary_crossentropy
 from keras.models import Model
 from keras.optimizers import Adadelta
-from keras.losses import binary_crossentropy
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+
 from dataset import Dataset
 
 dataset = Dataset()
@@ -36,14 +36,14 @@ def base_model(video, question):
 
 video = Input((dataset.max_video_len, dataset.frame_size))
 question = Input((dataset.max_question_len,), dtype='int32')
-model = Model(input=[video, question], output=base_model(video, question))
+model = Model(inputs=[video, question], outputs=base_model(video, question))
 model.compile(optimizer=Adadelta(), loss=binary_crossentropy)
 exp_name = 'experiments/baseline_test'
 
-nb_step = 3325 // batch_size + 1
+nb_step = 3325 * 5 // batch_size + 1
 trained = model.fit_generator(dataset.generator(batch_size, 'train'), nb_step, 10,
                               validation_data=dataset.generator(batch_size, 'train'),
-                              nb_val_samples=nb_step, callbacks=[EarlyStopping(patience=5),
+                              validation_steps=nb_step, callbacks=[EarlyStopping(patience=5),
                                                                  ModelCheckpoint(
                                                                      exp_name + '_.{epoch:02d}-{val_loss:.2f}.pkl',
                                                                      save_best_only=True)])
