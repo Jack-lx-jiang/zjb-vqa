@@ -21,7 +21,8 @@ class Dataset():
     def __init__(self):
         self.dict = AnswerMapping()
         vid, questions, answers = self.preprocess_text(self.phases[0])
-        self.dict.tokenize(answers, True)
+        ans = self.dict.tokenize(answers, True)
+        self.answer_size = max(ans) + 1
         self.tokenizer = Tokenizer(self.vocabulary_size)
         self.tokenizer.fit_on_texts(questions)
 
@@ -53,7 +54,6 @@ class Dataset():
         vid, questions, answers = self.preprocess_text(phase)
         questions = self.tokenizer.texts_to_sequences(questions)
         answers = self.dict.tokenize(answers)
-        self.answer_size = max(answers) + 1
         one_hot_answers = [to_categorical(answers[i], self.answer_size) + \
                            to_categorical(answers[i + 1], self.answer_size) + \
                            to_categorical(answers[i + 2], self.answer_size) \
