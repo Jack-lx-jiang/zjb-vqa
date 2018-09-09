@@ -1,13 +1,14 @@
-import random, numpy as np
+import numpy as np
+import os
+import random
+
 import imageio
-import skimage
-from skimage import transform
-from keras.preprocessing.text import Tokenizer, text_to_word_sequence
-from keras.utils import to_categorical
 from keras.applications.resnet50 import ResNet50
 from keras.models import Model
-import pickle as p
-import os
+from keras.preprocessing.text import Tokenizer
+from keras.utils import to_categorical
+from skimage import transform
+
 from mapping import AnswerMapping
 
 
@@ -66,7 +67,7 @@ class Dataset():
             if phase == 'train':
                 random.shuffle(inds)
             count = 0
-            while (count < len(inds)):
+            while count < len(inds):
                 X_video = np.zeros((batch_size, self.max_video_len, self.frame_size))
                 X_question = np.zeros((batch_size, self.max_question_len), dtype=np.int32)
                 Y = np.zeros((batch_size, self.answer_size), dtype=np.int32)
@@ -84,10 +85,13 @@ class Dataset():
                     except Exception as e:
                         print('generator error:')
                         print(str(e))
-                j += 1
-            Y[Y > 1] = 1
-            yield [X_video, X_question], Y
-            count += j
+                    j += 1
+                Y[Y > 1] = 1
+                try:
+                    yield [X_video, X_question], Y
+                except Exception as e:
+                    print(str(e))
+                count += j
 
     # extract video frames' feature
     def compute_frame_feature(self):
