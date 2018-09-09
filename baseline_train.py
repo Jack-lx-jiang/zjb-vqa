@@ -34,11 +34,16 @@ def base_model(video, question):
     return logit
 
 
+def multians_accuracy(y_true, y_pred):
+    pred = K.argmax(y_pred, axis=-1)
+    return K.mean(K.in_top_k(y_true, pred, 3),axis=-1)
+
 video = Input((dataset.max_video_len, dataset.frame_size))
 question = Input((dataset.max_question_len,), dtype='int32')
 model = Model(inputs=[video, question], outputs=base_model(video, question))
-model.compile(optimizer=Adadelta(), loss=binary_crossentropy, metrics=['mae', 'acc'])
+model.compile(optimizer=Adadelta(), loss=binary_crossentropy, metrics=[multians_accuracy])
 exp_name = 'experiments/baseline_test'
+
 
 nb_step = 3325 * 5 // batch_size + 1
 train_mod = False
