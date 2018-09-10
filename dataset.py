@@ -1,9 +1,11 @@
-import numpy as np
 import os
 import random
 
 import imageio
+import keras
+import numpy as np
 from keras.applications.resnet50 import ResNet50
+from keras.applications.resnet50 import preprocess_input
 from keras.models import Model
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
@@ -18,6 +20,8 @@ class Dataset():
     base_dir = 'dataset'
     vocabulary_size = 10000
     feature_dir = base_dir + '/feature'
+    BATCHES = 1000  # all batch
+    MINI_BATCHES = 100  # frames pre batch
 
     def __init__(self):
         self.dict = AnswerMapping()
@@ -55,9 +59,9 @@ class Dataset():
         vid, questions, answers = self.preprocess_text(phase)
         questions = self.tokenizer.texts_to_sequences(questions)
         answers = self.dict.tokenize(answers)
-        one_hot_answers = [to_categorical(answers[i], self.answer_size) + \
-                           to_categorical(answers[i + 1], self.answer_size) + \
-                           to_categorical(answers[i + 2], self.answer_size) \
+        one_hot_answers = [to_categorical(answers[i], self.answer_size) +
+                           to_categorical(answers[i + 1], self.answer_size) +
+                           to_categorical(answers[i + 2], self.answer_size)
                            for i in range(0, len(answers), 3)]
 
         inds = [i for i in range(len(vid) * 5)]
@@ -95,7 +99,11 @@ class Dataset():
 
     # extract video frames' feature
     def compute_frame_feature(self):
-        batch_size = 100
+        origin_image_format = keras.backend.image_data_format()
+        # set image_data_format to channels_last since some code is sensitive to channels
+        keras.backend.set_image_data_format('channels_last')
+
+        batch_size = self.MINI_BATCHES
         interval = 5
         res_model = ResNet50(weights='imagenet')
         model = Model(inputs=res_model.input, outputs=res_model.get_layer('avg_pool').output)
@@ -103,17 +111,16 @@ class Dataset():
         for phase in self.phases:
             vid_dir = self.base_dir + '/' + phase
             for i, v in enumerate(os.listdir(vid_dir)):
-                feature_file = self.feature_dir + '/' + v.split('.')[0] + \
-                               '_resnet.npy';
+                feature_file = self.feature_dir + '/' + v.split('.')[0] + '_resnet.npy'
                 if os.path.exists(feature_file):
                     continue
                 video = imageio.get_reader(vid_dir + '/' + str(v), 'ffmpeg')
                 print(vid_dir + '/' + str(v), i)
-                vid_descriptors = np.zeros((999 * batch_size, 2048))
+                vid_descriptors = np.zeros((self.BATCHES * batch_size, 2048))
                 frame_count = 0
                 frame_ind = 0
                 stop = False
-                for b in range(999):
+                for b in range(self.BATCHES):
                     batch = np.zeros((batch_size, 224, 224, 3))
                     for t in range(batch_size):
                         try:
@@ -127,12 +134,13 @@ class Dataset():
                             frame_count += 1
 
                         frame_ind += interval
-                    batch[:, :, :, 0] -= 103.939
-                    batch[:, :, :, 1] -= 116.779
-                    batch[:, :, :, 2] -= 123.68
+                    batch = preprocess_input(batch)
                     vid_descriptors[b * batch_size:(b + 1) * batch_size] = model.predict_on_batch(batch).reshape(
                         batch.shape[0], -1)
                     if stop:
                         video.close()
                         break
+                if not os.path.exists(self.feature_dir):
+                    os.mkdir(self.feature_dir)
                 np.save(feature_file, vid_descriptors[:frame_count])
+        keras.backend.set_image_data_format(origin_image_format)
