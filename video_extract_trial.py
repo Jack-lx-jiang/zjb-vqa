@@ -1,15 +1,11 @@
 import imageio
-import skimage
-from skimage import transform
-import numpy as np
-import types
 
 base_dir = 'dataset'
-filename = base_dir+'/train/'+'ZJL1.mp4'
-vid = imageio.get_reader(filename,  'ffmpeg')
+filename = base_dir + '/train/' + 'ZJL1.mp4'
+vid = imageio.get_reader(filename, 'ffmpeg')
 print(vid.get_length())
 # print(vid.format)
-im = vid.get_data(vid.get_length()-2)
+im = vid.get_data(vid.get_length() - 2)
 # print(im.shape)
 # im = transform.resize(im,(224,224))
 # print(im.shape)

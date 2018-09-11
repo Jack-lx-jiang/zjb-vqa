@@ -63,7 +63,6 @@ class Dataset():
                            to_categorical(answers[i + 1], self.answer_size) +
                            to_categorical(answers[i + 2], self.answer_size)
                            for i in range(0, len(answers), 3)]
-
         inds = [i for i in range(len(vid) * 5)]
         assert (len(inds) == len(questions))
         assert (len(one_hot_answers) == len(questions))
@@ -79,12 +78,14 @@ class Dataset():
                 j = 0
                 while i < batch_size:
                     try:
-                        # load feature map of each frame
-                        cur_video = np.load(self.feature_dir + '/' + vid[(count + j) % len(inds) // 5] + '_resnet.npy')
+                        cur_question = inds[(count + j) % len(inds)]
+                        # load feature maps of current question's video. shape: (video_len, feature_map_size)
+                        cur_video = np.load(self.feature_dir + '/' + vid[cur_question // 5] + '_resnet.npy')
+                        # extract cur_video[:min{cur_video.shape[0],max_video_len}]
                         X_video[i, :cur_video.shape[0]] = cur_video[:self.max_video_len]
-                        q = questions[inds[(count + j) % len(inds)]]
+                        q = questions[cur_question]
                         X_question[i, :len(q)] = q
-                        Y[i, :] = one_hot_answers[(count + j) % len(inds)]
+                        Y[i, :] = one_hot_answers[cur_question]
                         i += 1
                     except Exception as e:
                         print('generator error:')
