@@ -6,6 +6,7 @@ cache: pip
 install:
  - pip install -r requirements.txt
  - pip install pycodestyle
+ - imageio_download_bin ffmpeg
 before_script:
  - pycodestyle --max-line-length=120 --show-source .
 script: python -m pytest

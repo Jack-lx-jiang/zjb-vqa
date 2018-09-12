@@ -17,15 +17,17 @@ from mapping import AnswerMapping
 class Dataset():
     # phases = ['train', 'test', 'val']
     phases = ['train', 'test']
-    base_dir = 'dataset'
     vocabulary_size = 10000
-    feature_dir = base_dir + '/feature'
     BATCHES = 1000  # all batch
     MINI_BATCHES = 100  # frames pre batch
 
-    def __init__(self):
+    def __init__(self, phase=None, base_dir=None):
+        self.base_dir = base_dir or 'dataset'
+        self.feature_dir = self.base_dir + '/feature'
+        phase = phase or self.phases[0]
+
         self.dict = AnswerMapping()
-        vid, questions, answers = self.preprocess_text(self.phases[0])
+        vid, questions, answers = self.preprocess_text(phase)
         ans = self.dict.tokenize(answers, True)
         self.answer_size = max(ans) + 1
         self.tokenizer = Tokenizer(self.vocabulary_size)
@@ -50,6 +52,7 @@ class Dataset():
             for i in range(5):
                 questions.append(parts[i * 4 + 1])
                 answers.extend(parts[i * 4 + 2:i * 4 + 5])
+        fs.close()
         return vid, questions, answers
 
     # the generator function for model's input
@@ -58,14 +61,16 @@ class Dataset():
 
         vid, questions, answers = self.preprocess_text(phase)
         questions = self.tokenizer.texts_to_sequences(questions)
-        answers = self.dict.tokenize(answers)
-        one_hot_answers = [to_categorical(answers[i], self.answer_size) +
-                           to_categorical(answers[i + 1], self.answer_size) +
-                           to_categorical(answers[i + 2], self.answer_size)
-                           for i in range(0, len(answers), 3)]
+        if phase == 'train':
+            answers = self.dict.tokenize(answers)
+            one_hot_answers = [to_categorical(answers[i], self.answer_size) +
+                               to_categorical(answers[i + 1], self.answer_size) +
+                               to_categorical(answers[i + 2], self.answer_size)
+                               for i in range(0, len(answers), 3)]
         inds = [i for i in range(len(vid) * 5)]
         assert (len(inds) == len(questions))
-        assert (len(one_hot_answers) == len(questions))
+        if phase == 'train':
+            assert (len(one_hot_answers) == len(questions))
         while True:
             if phase == 'train':
                 random.shuffle(inds)
@@ -85,7 +90,8 @@ class Dataset():
                         X_video[i, :cur_video.shape[0]] = cur_video[:self.max_video_len]
                         q = questions[cur_question]
                         X_question[i, :len(q)] = q
-                        Y[i, :] = one_hot_answers[cur_question]
+                        if phase == 'train':
+                            Y[i, :] = one_hot_answers[cur_question]
                         i += 1
                     except Exception as e:
                         print('generator error:')
@@ -139,8 +145,8 @@ class Dataset():
                     vid_descriptors[b * batch_size:(b + 1) * batch_size] = model.predict_on_batch(batch).reshape(
                         batch.shape[0], -1)
                     if stop:
-                        video.close()
                         break
+                video.close()
                 if not os.path.exists(self.feature_dir):
                     os.mkdir(self.feature_dir)
                 np.save(feature_file, vid_descriptors[:frame_count])
