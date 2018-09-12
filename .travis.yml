@@ -9,4 +9,4 @@ install:
  - imageio_download_bin ffmpeg
 before_script:
  - pycodestyle --max-line-length=120 --show-source .
-script: python -m pytest
+script: python -m pytest -W ignore::DeprecationWarning
