@@ -33,7 +33,7 @@ class Dataset():
         self.tokenizer = Tokenizer(self.vocabulary_size)
         self.tokenizer.fit_on_texts(questions)
 
-        self.max_video_len = 100
+        self.max_video_len = 500
         self.max_question_len = 20
         # the feature map size of each frame
         self.frame_size = 2048

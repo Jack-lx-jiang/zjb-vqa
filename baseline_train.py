@@ -3,14 +3,14 @@ import pickle as p
 from collections import Counter
 
 import numpy as np
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from keras.layers import Input
 from keras.losses import binary_crossentropy
 from keras.models import Model
 from keras.optimizers import Adadelta
 
 from dataset import Dataset
-from model.model import stacked_attention_model
+from model.model import base_model
 from util.metrics import multians_accuracy
 
 # collect env variable
@@ -26,13 +26,19 @@ if not os.path.exists(exp_name):
 # create model
 video = Input((dataset.max_video_len, dataset.frame_size))
 question = Input((dataset.max_question_len,), dtype='int32')
-# model = Model(inputs=[video, question],
-#               outputs=base_model(video, question, dataset.vocabulary_size, dataset.max_question_len,
-#                                  dataset.max_video_len, dataset.answer_size))
 model = Model(inputs=[video, question],
-              outputs=stacked_attention_model(video, question, dataset.vocabulary_size, dataset.max_question_len,
-                                              dataset.answer_size))
-model.compile(optimizer=Adadelta(), loss=binary_crossentropy, metrics=[multians_accuracy])
+              outputs=base_model(video, question, dataset.vocabulary_size, dataset.max_question_len,
+                                 dataset.max_video_len, dataset.answer_size))
+# model = Model(inputs=[video, question],
+#               outputs=stacked_attention_model(video, question, dataset.vocabulary_size, dataset.max_question_len,
+#                                               dataset.answer_size))
+model.compile(optimizer=Adadelta(0.1), loss=binary_crossentropy, metrics=[multians_accuracy])
+exp_name = 'experiments/baseline_test'
+# exp_name = 'experiments/stacked_attention/test'
+log_dir = './logs'
+if not os.path.exists(log_dir):
+    os.mkdir(log_dir)
+
 
 train_mod = False
 test_mod = True
@@ -43,7 +49,7 @@ if train_mod:
                                   callbacks=[EarlyStopping(patience=5),
                                              ModelCheckpoint(
                                                  exp_name + '_.{epoch:02d}-{val_loss:.2f}.pkl',
-                                                 save_best_only=True)])
+                                                 save_best_only=True), TensorBoard(log_dir='./logs', histogram_freq=0)])
     p.dump(trained.history, open(exp_name + '_history.pkl', 'wb'))
     model.save_weights(exp_name + '.pkl')
 elif test_mod:
