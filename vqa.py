@@ -1,14 +1,14 @@
 import os
-import click
 import pickle as p
 from collections import Counter
 
+import click
 import numpy as np
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
-from keras.losses import binary_crossentropy
 from keras.optimizers import Adadelta
 
 from dataset import Dataset
+from util.loss import focal_loss
 from util.metrics import multians_accuracy
 
 '''
@@ -52,27 +52,32 @@ def cli(ctx, model_name, exp_name, data_dir, batch):
     batch_size = batch
     model = cur_model(dataset.vocabulary_size, dataset.max_question_len, dataset.max_video_len, dataset.frame_size,
                       dataset.answer_size)
-    model.compile(optimizer=Adadelta(0.1), loss=binary_crossentropy, metrics=[multians_accuracy])
+    model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
 
 
 @cli.command()
 @click.option('--nb_step', default=None)
 @click.option('--epoch', default=100)
+@click.option('--interval', default=1)
 @click.pass_context
-def train(ctx, nb_step, epoch):
+def train(ctx, nb_step, epoch, interval):
     if not nb_step:
         nb_step = 3325 * 5 // batch_size + 1
     log_dir = './logs'
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
     exp_name = ctx.obj['exp_name']
-    trained = model.fit_generator(dataset.generator(batch_size, 'train'), nb_step, epoch,
-                                  validation_data=dataset.generator(batch_size, 'train'),
-                                  validation_steps=nb_step / 10,
+
+    gen = (i for i in dataset.generator(batch_size, 'train'))
+    x, y = next(gen)
+    dum_val = (x, y)
+
+    trained = model.fit_generator(dataset.generator(batch_size, 'train', interval), nb_step, epoch,
+                                  validation_data=dum_val,
                                   callbacks=[EarlyStopping(patience=5),
                                              ModelCheckpoint(
                                                  exp_name + '_.{epoch:02d}-{val_loss:.2f}.pkl',
-                                                 save_best_only=True), TensorBoard(log_dir='./logs', histogram_freq=0)])
+                                                 save_best_only=True), TensorBoard(log_dir='./logs', histogram_freq=1)])
     p.dump(trained.history, open(exp_name + '_history.pkl', 'wb'))
     model.save_weights(exp_name + '.pkl')
 

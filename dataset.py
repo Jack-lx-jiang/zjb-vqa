@@ -1,3 +1,4 @@
+import math
 import os
 import random
 
@@ -33,7 +34,7 @@ class Dataset():
         self.tokenizer = Tokenizer(self.vocabulary_size)
         self.tokenizer.fit_on_texts(questions)
 
-        self.max_video_len = 500
+        self.max_video_len = 100
         self.max_question_len = 20
         # the feature map size of each frame
         self.frame_size = 2048
@@ -56,7 +57,7 @@ class Dataset():
         return vid, questions, answers
 
     # the generator function for model's input
-    def generator(self, batch_size, phase):
+    def generator(self, batch_size, phase, interval=1):
         assert (phase in self.phases)
 
         vid, questions, answers = self.preprocess_text(phase)
@@ -87,7 +88,8 @@ class Dataset():
                         # load feature maps of current question's video. shape: (video_len, feature_map_size)
                         cur_video = np.load(self.feature_dir + '/' + vid[cur_question // 5] + '_resnet.npy')
                         # extract cur_video[:min{cur_video.shape[0],max_video_len}]
-                        X_video[i, :cur_video.shape[0]] = cur_video[:self.max_video_len]
+                        X_video[i, :math.ceil(cur_video.shape[0] / interval)] = cur_video[
+                                                                                :self.max_video_len * interval:interval]
                         q = questions[cur_question]
                         X_question[i, :len(q)] = q
                         if phase == 'train':
