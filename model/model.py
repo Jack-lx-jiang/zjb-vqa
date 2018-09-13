@@ -1,10 +1,14 @@
 from keras import backend as K
-from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation
+from keras.layers import Input, Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation
 from keras.layers.core import Dense
+from keras.models import Model
 from keras.layers.embeddings import Embedding
 
 
-def base_model(video, question, vocabulary_size, max_question_len, max_video_len, answer_size):
+def base_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size):
+    video = Input((max_video_len, frame_size))
+    question = Input((max_question_len,), dtype='int32')
+
     embedding_size = 300
     embedding_layer = Embedding(vocabulary_size, embedding_size, input_length=max_question_len,
                                 mask_zero=True)(question)
@@ -20,10 +24,13 @@ def base_model(video, question, vocabulary_size, max_question_len, max_video_len
     combine_encoding = multiply([video_encoding2, question_encoding2])
     decode = Dense(2048)(combine_encoding)
     logit = Dense(answer_size, activation='sigmoid')(decode)
-    return logit
+    return Model(inputs=[video, question], outputs=logit)
 
 
-def stacked_attention_model(video, question, vocabulary_size, max_question_len, answer_size):
+def stacked_attention_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size):
+    video = Input((max_video_len, frame_size))
+    question = Input((max_question_len,), dtype='int32')
+
     embedding_size = 300
     embedding_layer = Embedding(vocabulary_size, embedding_size, input_length=max_question_len,
                                 mask_zero=True)(question)
@@ -56,4 +63,4 @@ def stacked_attention_model(video, question, vocabulary_size, max_question_len, 
 
     decode = Dense(2048)(final_video_question)
     logit = Dense(answer_size, activation='sigmoid')(decode)
-    return logit
+    return Model(inputs=[video, question], outputs=logit)
