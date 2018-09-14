@@ -48,7 +48,7 @@ class Dataset():
         answers = []
         fs = open(self.base_dir + '/' + phase + '.txt')
         for line in fs.readlines():
-            parts = line.split(',')
+            parts = [x.strip() for x in line.split(',')]
             vid.append(parts[0])
             for i in range(5):
                 questions.append(parts[i * 4 + 1])
