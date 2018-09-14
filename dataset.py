@@ -57,21 +57,28 @@ class Dataset():
         return vid, questions, answers
 
     # the generator function for model's input
-    def generator(self, batch_size, phase, interval=1):
-        assert (phase in self.phases)
-
-        vid, questions, answers = self.preprocess_text(phase)
+    def generator(self, batch_size, phase, interval=1, train_threshhold=0.95):
+        if phase == 'val':
+            vid, questions, answers = self.preprocess_text('train')
+        else:
+            vid, questions, answers = self.preprocess_text(phase)
         questions = self.tokenizer.texts_to_sequences(questions)
-        if phase == 'train':
+        if phase != 'test':
             answers = self.dict.tokenize(answers)
             one_hot_answers = [to_categorical(answers[i], self.answer_size) +
                                to_categorical(answers[i + 1], self.answer_size) +
                                to_categorical(answers[i + 2], self.answer_size)
                                for i in range(0, len(answers), 3)]
-        inds = [i for i in range(len(vid) * 5)]
-        assert (len(inds) == len(questions))
-        if phase == 'train':
             assert (len(one_hot_answers) == len(questions))
+        all_index = [i for i in range(len(vid) * 5)]
+        split = math.floor(len(vid) * train_threshhold)
+        if phase == 'train':
+            inds = all_index[:split * 5]
+        elif phase == 'val':
+            inds = all_index[split * 5:]
+        else:
+            inds = all_index
+
         while True:
             if phase == 'train':
                 random.shuffle(inds)
@@ -92,7 +99,7 @@ class Dataset():
                                                                                 :self.max_video_len * interval:interval]
                         q = questions[cur_question]
                         X_question[i, :len(q)] = q
-                        if phase == 'train':
+                        if phase != 'test':
                             Y[i, :] = one_hot_answers[cur_question]
                         i += 1
                     except Exception as e:

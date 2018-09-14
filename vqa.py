@@ -4,7 +4,7 @@ from collections import Counter
 
 import click
 import numpy as np
-from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.optimizers import Adadelta
 
 from dataset import Dataset
@@ -56,28 +56,26 @@ def cli(ctx, model_name, exp_name, data_dir, batch):
 
 
 @cli.command()
-@click.option('--nb_step', default=None)
+@click.option('--nb_step', default=0)
 @click.option('--epoch', default=100)
 @click.option('--interval', default=1)
 @click.pass_context
 def train(ctx, nb_step, epoch, interval):
+    threds = 0.95
     if not nb_step:
-        nb_step = 3325 * 5 // batch_size + 1
+        nb_step = 3325 * 5 * threds // batch_size + 1
+    val_step = 3325 * 5 * (1 - threds) // batch_size
     log_dir = './logs'
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
     exp_name = ctx.obj['exp_name']
-
-    gen = (i for i in dataset.generator(batch_size, 'train'))
-    x, y = next(gen)
-    dum_val = (x, y)
-
-    trained = model.fit_generator(dataset.generator(batch_size, 'train', interval), nb_step, epoch,
-                                  validation_data=dum_val,
+    trained = model.fit_generator(dataset.generator(batch_size, 'train', interval, threds), nb_step, epoch,
+                                  validation_data=dataset.generator(batch_size, 'val', interval, threds),
+                                  validation_steps=val_step,
                                   callbacks=[EarlyStopping(patience=5),
                                              ModelCheckpoint(
                                                  exp_name + 'E{epoch:02d}-L{val_loss:.2f}.pkl',
-                                                 save_best_only=True), TensorBoard(log_dir='./logs', histogram_freq=1)])
+                                                 save_best_only=True)])
     p.dump(trained.history, open(exp_name + 'history.pkl', 'wb'))
     model.save_weights(exp_name + 'latest.pkl')
 
@@ -89,6 +87,7 @@ def test(ctx):
     model.load_weights(exp_name + 'latest.pkl')
     vid, questions, _ = dataset.preprocess_text('test')
     total_steps = len(questions) // batch_size + 1
+    total_steps = 10
     prediction = model.predict_generator(dataset.generator(batch_size, 'test'), steps=total_steps, verbose=1)
     prediction = np.argmax(prediction, axis=1)
     # get statistics of counter
@@ -103,7 +102,7 @@ def test(ctx):
 
 
 @cli.command()
-@click.option('--nb_step', default=None)
+@click.option('--nb_step', default=0)
 @click.pass_context
 def eval(ctx, nb_step):
     if not nb_step:
