@@ -42,7 +42,7 @@ def cli(ctx, model_name, exp_name, data_dir, batch):
     cur_model = getattr(views, model_name)
 
     if not exp_name:
-        exp_name = 'experiments/{}/test'.format(model_name)
+        exp_name = 'experiments/{}/'.format(model_name)
     ctx.obj = {'exp_name': exp_name}
     if not os.path.exists(exp_name):
         os.makedirs(exp_name)
@@ -76,17 +76,17 @@ def train(ctx, nb_step, epoch, interval):
                                   validation_data=dum_val,
                                   callbacks=[EarlyStopping(patience=5),
                                              ModelCheckpoint(
-                                                 exp_name + '_.{epoch:02d}-{val_loss:.2f}.pkl',
+                                                 exp_name + 'E{epoch:02d}-L{val_loss:.2f}.pkl',
                                                  save_best_only=True), TensorBoard(log_dir='./logs', histogram_freq=1)])
-    p.dump(trained.history, open(exp_name + '_history.pkl', 'wb'))
-    model.save_weights(exp_name + '.pkl')
+    p.dump(trained.history, open(exp_name + 'history.pkl', 'wb'))
+    model.save_weights(exp_name + 'latest.pkl')
 
 
 @cli.command()
 @click.pass_context
 def test(ctx):
     exp_name = ctx.obj['exp_name']
-    model.load_weights(exp_name + '.pkl')
+    model.load_weights(exp_name + 'latest.pkl')
     vid, questions, _ = dataset.preprocess_text('test')
     total_steps = len(questions) // batch_size + 1
     prediction = model.predict_generator(dataset.generator(batch_size, 'test'), steps=total_steps, verbose=1)
@@ -109,7 +109,7 @@ def eval(ctx, nb_step):
     if not nb_step:
         nb_step = 3325 * 5 // batch_size + 1
     exp_name = ctx.obj['exp_name']
-    model.load_weights(exp_name + '.pkl')
+    model.load_weights(exp_name + 'latest.pkl')
     metrics = model.evaluate_generator(dataset.generator(batch_size, 'train'), nb_step)
     # print(metrics)
     for i in range(len(model.metrics_names)):
