@@ -87,7 +87,6 @@ def test(ctx):
     model.load_weights(exp_name + 'latest.pkl')
     vid, questions, _ = dataset.preprocess_text('test')
     total_steps = len(questions) // batch_size + 1
-    total_steps = 10
     prediction = model.predict_generator(dataset.generator(batch_size, 'test'), steps=total_steps, verbose=1)
     prediction = np.argmax(prediction, axis=1)
     # get statistics of counter
