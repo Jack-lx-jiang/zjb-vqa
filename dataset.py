@@ -57,7 +57,7 @@ class Dataset():
         return vid, questions, answers
 
     # the generator function for model's input
-    def generator(self, batch_size, phase, interval=1, train_threshhold=0.95):
+    def generator(self, batch_size, phase, interval=1, train_threshold=0.95):
         if phase == 'val':
             vid, questions, answers = self.preprocess_text('train')
         else:
@@ -71,7 +71,7 @@ class Dataset():
                                for i in range(0, len(answers), 3)]
             assert (len(one_hot_answers) == len(questions))
         all_index = [i for i in range(len(vid) * 5)]
-        split = math.floor(len(vid) * train_threshhold)
+        split = math.floor(len(vid) * train_threshold)
         if phase == 'train':
             inds = all_index[:split * 5]
         elif phase == 'val':

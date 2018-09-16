@@ -1,4 +1,4 @@
-import os
+import os, time
 import pickle as p
 from collections import Counter
 
@@ -42,7 +42,10 @@ def cli(ctx, model_name, exp_name, data_dir, batch):
     cur_model = getattr(views, model_name)
 
     if not exp_name:
-        exp_name = 'experiments/{}/'.format(model_name)
+        time_now = int(time.time())
+        time_local = time.localtime(time_now)
+        dt = time.strftime("%Y-%m-%d_%H:%M:%S", time_local)
+        exp_name = 'experiments/{}/'.format(model_name+dt)
     ctx.obj = {'exp_name': exp_name}
     if not os.path.exists(exp_name):
         os.makedirs(exp_name)
@@ -69,10 +72,14 @@ def train(ctx, nb_step, epoch, interval):
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
     exp_name = ctx.obj['exp_name']
+    # gen = (i for i in dataset.generator(batch_size, 'train'))
+    # x, y = next(gen)
+    # dum_val = (x, y)
     trained = model.fit_generator(dataset.generator(batch_size, 'train', interval, threds), nb_step, epoch,
                                   validation_data=dataset.generator(batch_size, 'val', interval, threds),
                                   validation_steps=val_step,
-                                  callbacks=[EarlyStopping(patience=5),
+                                  # validation_data = dum_val,
+                                  callbacks=[#EarlyStopping(patience=5),
                                              ModelCheckpoint(
                                                  exp_name + 'E{epoch:02d}-L{val_loss:.2f}.pkl',
                                                  save_best_only=True)])

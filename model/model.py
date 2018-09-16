@@ -1,5 +1,5 @@
 from keras import backend as K
-from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation, Input
+from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation, Input,Dropout
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
@@ -73,6 +73,7 @@ def encode_decode_model(vocabulary_size, max_question_len, max_video_len, frame_
     embedding_layer = Embedding(vocabulary_size, embedding_size, input_length=max_question_len,
                                 mask_zero=True)(question)
     question_encoding = GRU(512)(Masking()(embedding_layer))
-    decoder = GRU(512)(Masking()(video), initial_state=[question_encoding])
+    video_dropout = Dropout(0.5)(video)
+    decoder = GRU(512)(Masking()(video_dropout), initial_state=[question_encoding])
     logit = Dense(answer_size, activation='sigmoid')(decoder)
     return Model(inputs=[video, question], outputs=logit)
