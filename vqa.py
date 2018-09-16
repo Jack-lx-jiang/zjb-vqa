@@ -1,10 +1,11 @@
-import os, time
+import os
 import pickle as p
+import time
 from collections import Counter
 
 import click
 import numpy as np
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.callbacks import ModelCheckpoint
 from keras.optimizers import Adadelta
 
 from dataset import Dataset
@@ -44,8 +45,8 @@ def cli(ctx, model_name, exp_name, data_dir, batch):
     if not exp_name:
         time_now = int(time.time())
         time_local = time.localtime(time_now)
-        dt = time.strftime("%Y-%m-%d_%H:%M:%S", time_local)
-        exp_name = 'experiments/{}/'.format(model_name+dt)
+        dt = time.strftime("%Y-%m-%d_%H-%M-%S", time_local)
+        exp_name = 'experiments/{}/{}/'.format(model_name, dt)
     ctx.obj = {'exp_name': exp_name}
     if not os.path.exists(exp_name):
         os.makedirs(exp_name)
@@ -79,10 +80,10 @@ def train(ctx, nb_step, epoch, interval):
                                   validation_data=dataset.generator(batch_size, 'val', interval, threds),
                                   validation_steps=val_step,
                                   # validation_data = dum_val,
-                                  callbacks=[#EarlyStopping(patience=5),
-                                             ModelCheckpoint(
-                                                 exp_name + 'E{epoch:02d}-L{val_loss:.2f}.pkl',
-                                                 save_best_only=True)])
+                                  callbacks=[  # EarlyStopping(patience=5),
+                                      ModelCheckpoint(
+                                          exp_name + 'E{epoch:02d}-L{val_loss:.2f}.pkl',
+                                          save_best_only=True)])
     p.dump(trained.history, open(exp_name + 'history.pkl', 'wb'))
     model.save_weights(exp_name + 'latest.pkl')
 
