@@ -16,7 +16,7 @@ class AnswerMapping(object):
                 tokens.append(self._add_token(a))
         else:
             for a in ans:
-                tokens.append(self.ans2idx[a])
+                tokens.append(self.ans2idx[a] if a in self.ans2idx else -1)
         return tokens
 
     def dump_to_file(self, path):

@@ -1,6 +1,7 @@
 import math
 import os
 import random
+from collections import Counter
 
 import imageio
 import keras
@@ -29,6 +30,11 @@ class Dataset():
 
         self.dict = AnswerMapping()
         vid, questions, answers = self.preprocess_text(phase)
+        # reduce the scale of answers
+        minium_count = 10
+
+        rare_set = set([ans for ans, a_num in Counter(answers).items() if a_num <= minium_count])
+        answers = [a for a in answers if a not in rare_set]
         ans = self.dict.tokenize(answers, True)
         self.answer_size = max(ans) + 1
         self.tokenizer = Tokenizer(self.vocabulary_size)
@@ -65,10 +71,16 @@ class Dataset():
         questions = self.tokenizer.texts_to_sequences(questions)
         if phase != 'test':
             answers = self.dict.tokenize(answers)
-            one_hot_answers = [to_categorical(answers[i], self.answer_size) +
-                               to_categorical(answers[i + 1], self.answer_size) +
-                               to_categorical(answers[i + 2], self.answer_size)
-                               for i in range(0, len(answers), 3)]
+            one_hot_answers = []
+            for i in range(0, len(answers), 3):
+                cur_answer = np.zeros(self.answer_size)
+                cur_answer += to_categorical(answers[i], self.answer_size) if answers[i] != -1 else np.zeros(
+                    self.answer_size)
+                cur_answer += to_categorical(answers[i + 1], self.answer_size) if answers[i + 1] != -1 else np.zeros(
+                    self.answer_size)
+                cur_answer += to_categorical(answers[i + 2], self.answer_size) if answers[i + 2] != -1 else np.zeros(
+                    self.answer_size)
+                one_hot_answers.append(cur_answer)
             assert (len(one_hot_answers) == len(questions))
         all_index = [i for i in range(len(vid) * 5)]
         split = math.floor(len(vid) * train_threshold)
