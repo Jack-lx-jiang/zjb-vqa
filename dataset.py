@@ -57,7 +57,7 @@ class Dataset():
         return vid, questions, answers
 
     # the generator function for model's input
-    def generator(self, batch_size, phase, interval=1, train_threshold=0.95):
+    def generator(self, batch_size, phase, interval=1, train_threshold=0.95, fluctuation=0.2):
         if phase == 'val':
             vid, questions, answers = self.preprocess_text('train')
         else:
@@ -95,8 +95,18 @@ class Dataset():
                         # load feature maps of current question's video. shape: (video_len, feature_map_size)
                         cur_video = np.load(self.feature_dir + '/' + vid[cur_question // 5] + '_resnet.npy')
                         # extract cur_video[:min{cur_video.shape[0],max_video_len}]
-                        X_video[i, :math.ceil(cur_video.shape[0] / interval)] = cur_video[
-                                                                                :self.max_video_len * interval:interval]
+                        frames_num = min(self.max_video_len, math.ceil(cur_video.shape[0] / interval))
+                        frame_indx = [f for f in range(0, frames_num * interval, interval)]
+                        if interval >= 3 and fluctuation != 0.0:
+                            changed_set = set()
+                            for f in range(0, math.ceil(frames_num * fluctuation)):
+                                cur_frame_indx = random.randint(0, frames_num - 1)
+                                if cur_frame_indx not in changed_set:
+                                    changed_set.add(cur_frame_indx)
+                                    new_frame_indx = frame_indx[cur_frame_indx] + random.randint(-1, 1)
+                                    if 0 <= new_frame_indx < cur_video.shape[0]:
+                                        frame_indx[cur_frame_indx] = new_frame_indx
+                        X_video[i, :frames_num] = cur_video[frame_indx]
                         q = questions[cur_question]
                         X_question[i, :len(q)] = q
                         if phase != 'test':
