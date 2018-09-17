@@ -83,6 +83,7 @@ def train(ctx, nb_step, epoch, interval):
                                   callbacks=[  # EarlyStopping(patience=5),
                                       ModelCheckpoint(
                                           exp_name + 'E{epoch:02d}-L{val_loss:.2f}.pkl',
+                                          monitor='val_multians_accuracy',
                                           save_best_only=True)])
     p.dump(trained.history, open(exp_name + 'history.pkl', 'wb'))
     model.save_weights(exp_name + 'latest.pkl')
