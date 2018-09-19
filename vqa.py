@@ -90,10 +90,11 @@ def train(ctx, nb_step, epoch, interval):
 
 
 @cli.command()
+@click.option('--pkl_name', default='latest.pkl')
 @click.pass_context
-def test(ctx):
+def test(ctx, pkl_name):
     exp_name = ctx.obj['exp_name']
-    model.load_weights(exp_name + 'latest.pkl')
+    model.load_weights(exp_name + pkl_name)
     vid, questions, _ = dataset.preprocess_text('test')
     total_steps = len(questions) // batch_size + 1
     prediction = model.predict_generator(dataset.generator(batch_size, 'test'), steps=total_steps, verbose=1)
@@ -111,12 +112,13 @@ def test(ctx):
 
 @cli.command()
 @click.option('--nb_step', default=0)
+@click.option('--pkl_name', default='latest.pkl')
 @click.pass_context
-def eval(ctx, nb_step):
+def eval(ctx, nb_step, pkl_name):
     if not nb_step:
         nb_step = 3325 * 5 // batch_size + 1
     exp_name = ctx.obj['exp_name']
-    model.load_weights(exp_name + 'latest.pkl')
+    model.load_weights(exp_name + pkl_name)
     metrics = model.evaluate_generator(dataset.generator(batch_size, 'train'), nb_step)
     # print(metrics)
     for i in range(len(model.metrics_names)):
