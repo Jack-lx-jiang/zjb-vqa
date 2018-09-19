@@ -1,5 +1,6 @@
 import os
 import pickle
+
 import numpy as np
 from tqdm import tqdm
 
@@ -21,9 +22,9 @@ def load(filename):
 
 
 def make_embedding_weight(tokenizer):
-    GLOVE_DIR = '/Users/KaitoHH/Downloads'
+    GLOVE_DIR = "C:\\Users\\KatioHH\\Desktop"
     embeddings_index = {}
-    f = open(os.path.join(GLOVE_DIR, 'glove.42B.300d.txt'))
+    f = open(os.path.join(GLOVE_DIR, 'glove.42B.300d.txt'), encoding='utf-8')
     with tqdm(total=1917494) as pbar:
         for line in f:
             values = line.split()
