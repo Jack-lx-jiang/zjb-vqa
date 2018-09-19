@@ -11,7 +11,9 @@ class WordEmbeddingTest(unittest.TestCase):
         all_token = ""
         for token in tokenizer.word_index:
             all_token += token
+        print(all_token)
+        self.assertEqual(all_token, 'theinvideoispersonwhatoforwherecolorclotheswomandoingsittingdoeshairlying'
+                                    'havelongshortwearstandingbook')
         sha256 = hashlib.sha256(all_token.encode('utf-8')).hexdigest()
-
         # this ensures that index in tokenizer will not change in different sessions
         self.assertEqual(sha256, '6c076edeafd2203e7ae9d20afccc6b76809cb03faf06452695ad59820656de06')
