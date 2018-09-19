@@ -4,10 +4,10 @@ from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multi
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
-import numpy as np
+from util.utils import load_embedding_weight
 
 
-def base_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size):
+def base_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size, tokenizer):
     video = Input((max_video_len, frame_size))
     question = Input((max_question_len,), dtype='int32')
 
@@ -29,7 +29,7 @@ def base_model(vocabulary_size, max_question_len, max_video_len, frame_size, ans
     return Model(inputs=[video, question], outputs=logit)
 
 
-def stacked_attention_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size):
+def stacked_attention_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size, tokenizer):
     video = Input((max_video_len, frame_size))
     question = Input((max_question_len,), dtype='int32')
 
@@ -68,10 +68,10 @@ def stacked_attention_model(vocabulary_size, max_question_len, max_video_len, fr
     return Model(inputs=[video, question], outputs=logit)
 
 
-def encode_decode_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size):
+def encode_decode_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size, tokenizer):
     video = Input((max_video_len, frame_size))
     question = Input((max_question_len,), dtype='int32')
-    embedding_matrix = np.load('embedding.npy')
+    embedding_matrix = load_embedding_weight(tokenizer)
     embedding_size = 300
     embedding_layer = Embedding(vocabulary_size, embedding_size, input_length=max_question_len, mask_zero=True,
                                 weights=[embedding_matrix], trainable=False)(question)

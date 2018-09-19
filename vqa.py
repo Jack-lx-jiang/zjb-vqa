@@ -55,7 +55,7 @@ def cli(ctx, model_name, exp_name, data_dir, batch):
     dataset = Dataset(base_dir=data_dir)
     batch_size = batch
     model = cur_model(dataset.vocabulary_size, dataset.max_question_len, dataset.max_video_len, dataset.frame_size,
-                      dataset.answer_size)
+                      dataset.answer_size, dataset.tokenizer)
     model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
 
 
