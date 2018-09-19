@@ -36,5 +36,6 @@ tensorflow==1.10.0
 termcolor==1.1.0
 text-unidecode==1.2
 toolz==0.9.0
+tqdm==4.26.0
 Werkzeug==0.14.1
 wincertstore==0.2

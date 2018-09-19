@@ -18,7 +18,6 @@ from mapping import AnswerMapping
 class Dataset():
     # phases = ['train', 'test', 'val']
     phases = ['train', 'test']
-    vocabulary_size = 10000
     BATCHES = 1000  # all batch
     MINI_BATCHES = 100  # frames pre batch
 
@@ -31,9 +30,10 @@ class Dataset():
         vid, questions, answers = self.preprocess_text(phase)
         ans = self.dict.tokenize(answers, True)
         self.answer_size = max(ans) + 1
-        self.tokenizer = Tokenizer(self.vocabulary_size)
+        self.tokenizer = Tokenizer()
         self.tokenizer.fit_on_texts(questions)
 
+        self.vocabulary_size = len(self.tokenizer.word_index) + 1
         self.max_video_len = 100
         self.max_question_len = 20
         # the feature map size of each frame
