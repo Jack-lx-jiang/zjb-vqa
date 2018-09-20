@@ -22,7 +22,7 @@ class Dataset():
     BATCHES = 1000  # all batch
     MINI_BATCHES = 100  # frames pre batch
 
-    def __init__(self, phase=None, base_dir=None):
+    def __init__(self, phase=None, base_dir=None, minimum_appear=3, interval=3):
         self.base_dir = base_dir or 'dataset'
         self.feature_dir = self.base_dir + '/feature'
         phase = phase or self.phases[0]
@@ -30,9 +30,9 @@ class Dataset():
         self.dict = AnswerMapping()
         vid, questions, answers = self.preprocess_text(phase)
         # reduce the scale of answers
-        minium_count = 10
+        # minium_count = 3
 
-        rare_set = set([ans for ans, a_num in Counter(answers).items() if a_num <= minium_count])
+        rare_set = set([ans for ans, a_num in Counter(answers).items() if a_num <= minimum_appear])
         answers = [a for a in answers if a not in rare_set]
         ans = self.dict.tokenize(answers, True)
         self.answer_size = max(ans) + 1
@@ -42,6 +42,7 @@ class Dataset():
         self.vocabulary_size = len(self.tokenizer.word_index) + 1
         self.max_video_len = 100
         self.max_question_len = 20
+        self.interval = interval
         # the feature map size of each frame
         self.frame_size = 2048
 
@@ -63,7 +64,7 @@ class Dataset():
         return vid, questions, answers
 
     # the generator function for model's input
-    def generator(self, batch_size, phase, interval=1, train_threshold=0.95, fluctuation=0.2):
+    def generator(self, batch_size, phase, train_threshold=0.95, fluctuation=0.2):
         if phase == 'val':
             vid, questions, answers = self.preprocess_text('train')
         else:
@@ -107,9 +108,9 @@ class Dataset():
                         # load feature maps of current question's video. shape: (video_len, feature_map_size)
                         cur_video = np.load(self.feature_dir + '/' + vid[cur_question // 5] + '_resnet.npy')
                         # extract cur_video[:min{cur_video.shape[0],max_video_len}]
-                        frames_num = min(self.max_video_len, math.ceil(cur_video.shape[0] / interval))
-                        frame_indx = [f for f in range(0, frames_num * interval, interval)]
-                        if interval >= 3 and fluctuation != 0.0:
+                        frames_num = min(self.max_video_len, math.ceil(cur_video.shape[0] / self.interval))
+                        frame_indx = [f for f in range(0, frames_num * self.interval, self.interval)]
+                        if self.interval >= 3 and fluctuation != 0.0:
                             changed_set = set()
                             for f in range(0, math.ceil(frames_num * fluctuation)):
                                 cur_frame_indx = random.randint(0, frames_num - 1)
@@ -152,8 +153,8 @@ class Dataset():
                 feature_file = self.feature_dir + '/' + v.split('.')[0] + '_resnet.npy'
                 if os.path.exists(feature_file):
                     continue
-                video = imageio.get_reader(vid_dir + '/' + str(v), 'ffmpeg')
                 print(vid_dir + '/' + str(v), i)
+                video = imageio.get_reader(vid_dir + '/' + str(v), 'ffmpeg')
                 vid_descriptors = np.zeros((self.BATCHES * batch_size, 2048))
                 frame_count = 0
                 frame_ind = 0

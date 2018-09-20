@@ -45,8 +45,8 @@ def make_embedding_weight(tokenizer):
 
 def load_embedding_weight(tokenizer):
     embeddings_index = load('embedding_index.pkl')
-    embedding_matrix = np.zeros((len(tokenizer.index_word) + 1, 300))
-    for idx, word in tokenizer.index_word.items():
+    embedding_matrix = np.zeros((len(tokenizer.word_index) + 1, 300))
+    for word, idx in tokenizer.word_index.items():
         if word.endswith("'s"):
             word = word[:-2]
         if embeddings_index.get(word) is not None:

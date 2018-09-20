@@ -37,8 +37,10 @@ model = None
 @click.option('--exp_name', default=None, help='Path to store the model.')
 @click.option('--data_dir', default=None, help='Data path containing extracted feature.')
 @click.option('--batch', default=128, help='Size of one batch.')
+@click.option('--minimum_appear', default=3, help='remove the answers appear less than minimum_appear.')
+@click.option('--interval', default=1, help='the interval to extract frame')
 @click.pass_context
-def cli(ctx, model_name, exp_name, data_dir, batch):
+def cli(ctx, model_name, exp_name, data_dir, batch, minimum_appear, interval):
     views = __import__('model')
     cur_model = getattr(views, model_name)
 
@@ -52,7 +54,7 @@ def cli(ctx, model_name, exp_name, data_dir, batch):
         os.makedirs(exp_name)
 
     global dataset, batch_size, model
-    dataset = Dataset(base_dir=data_dir)
+    dataset = Dataset(base_dir=data_dir, minimum_appear=minimum_appear, interval=interval)
     batch_size = batch
     model = cur_model(dataset.vocabulary_size, dataset.max_question_len, dataset.max_video_len, dataset.frame_size,
                       dataset.answer_size, dataset.tokenizer)
@@ -62,13 +64,13 @@ def cli(ctx, model_name, exp_name, data_dir, batch):
 @cli.command()
 @click.option('--nb_step', default=0)
 @click.option('--epoch', default=100)
-@click.option('--interval', default=1)
 @click.pass_context
 def train(ctx, nb_step, epoch, interval):
     threds = 0.95
+    nb_samples = 3325 + 3200
     if not nb_step:
-        nb_step = 3325 * 5 * threds // batch_size + 1
-    val_step = 3325 * 5 * (1 - threds) // batch_size
+        nb_step = nb_samples * 5 * threds // batch_size + 1
+    val_step = nb_samples * 5 * (1 - threds) // batch_size
     log_dir = './logs'
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
