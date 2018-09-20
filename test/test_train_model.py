@@ -13,7 +13,7 @@ class TrainModelTest(unittest.TestCase):
         views = __import__('model')
         cur_model = getattr(views, 'base_model')
         model = cur_model(data.vocabulary_size, data.max_question_len, data.max_video_len, data.frame_size,
-                          data.answer_size)
+                          data.answer_size, data.tokenizer)
         model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
         model.fit_generator(data.generator(128, 'train'), 10)
         result = model.predict_generator(data.generator(128, 'train'), 10)
