@@ -7,7 +7,7 @@ from dataset import Dataset
 
 class FeatureGenerationTest(unittest.TestCase):
     def test_generate_train_dataset_feature(self):
-        data = Dataset(phase='train', base_dir='test/sample_data')
+        data = Dataset(phase='train', base_dir='test/sample_data', minimum_appear=0)
         data.phases = ['train']
         data.compute_frame_feature()
         batch_size = 128
