@@ -38,7 +38,7 @@ model = None
 @click.option('--data_dir', default=None, help='Data path containing extracted feature.')
 @click.option('--batch', default=128, help='Size of one batch.')
 @click.option('--minimum_appear', default=3, help='remove the answers appear less than minimum_appear.')
-@click.option('--interval', default=1, help='the interval to extract frame')
+@click.option('--interval', default=3, help='the interval to extract frame')
 @click.pass_context
 def cli(ctx, model_name, exp_name, data_dir, batch, minimum_appear, interval):
     views = __import__('model')
@@ -65,7 +65,7 @@ def cli(ctx, model_name, exp_name, data_dir, batch, minimum_appear, interval):
 @click.option('--nb_step', default=0)
 @click.option('--epoch', default=100)
 @click.pass_context
-def train(ctx, nb_step, epoch, interval):
+def train(ctx, nb_step, epoch):
     threds = 0.95
     nb_samples = 3325 + 3200
     if not nb_step:
@@ -78,15 +78,16 @@ def train(ctx, nb_step, epoch, interval):
     # gen = (i for i in dataset.generator(batch_size, 'train'))
     # x, y = next(gen)
     # dum_val = (x, y)
-    trained = model.fit_generator(dataset.generator(batch_size, 'train', interval, threds), nb_step, epoch,
-                                  validation_data=dataset.generator(batch_size, 'val', interval, threds),
+    trained = model.fit_generator(dataset.generator(batch_size, 'train', threds), nb_step, epoch,
+                                  validation_data=dataset.generator(batch_size, 'val', threds),
                                   validation_steps=val_step,
                                   # validation_data = dum_val,
                                   callbacks=[  # EarlyStopping(patience=5),
                                       ModelCheckpoint(
                                           exp_name + 'E{epoch:02d}-L{val_loss:.2f}.pkl',
                                           monitor='val_multians_accuracy',
-                                          save_best_only=True)])
+                                          save_best_only=False,
+                                          period=5)])
     p.dump(trained.history, open(exp_name + 'history.pkl', 'wb'))
     model.save_weights(exp_name + 'latest.pkl')
 
