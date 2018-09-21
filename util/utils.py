@@ -2,6 +2,8 @@ import os
 import pickle
 
 import numpy as np
+from keras import backend as K
+from numpy import newaxis
 from tqdm import tqdm
 
 
@@ -54,3 +56,17 @@ def load_embedding_weight(tokenizer):
         else:
             print(word)
     return embedding_matrix
+
+
+def outer_product(inputs):
+    """
+    inputs: list of two tensors (of equal dimensions,
+        for which you need to compute the outer product
+    """
+    x, y = inputs
+    batch_size = K.shape(x)[0]
+    side_len = K.shape(x)[1]
+    output = x[:, :, newaxis] * y[:, newaxis, :]
+    output = K.reshape(output, (batch_size, side_len, side_len))
+    # returns a flattened batch-wise set of tensors
+    return output
