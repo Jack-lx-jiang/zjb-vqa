@@ -1,9 +1,10 @@
 from keras import backend as K
 from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation, Input, \
-    Dropout
+    Bidirectional, Dropout
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
+
 from util.utils import load_embedding_weight
 
 
@@ -78,5 +79,28 @@ def encode_decode_model(vocabulary_size, max_question_len, max_video_len, frame_
     question_encoding = GRU(512)(Masking()(embedding_layer))
     video_dropout = Dropout(0.5)(video)
     decoder = GRU(512)(Masking()(video_dropout), initial_state=[question_encoding])
+    logit = Dense(answer_size, activation='sigmoid')(decoder)
+    return Model(inputs=[video, question], outputs=logit)
+
+
+def encode_decode_model_2_0(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size, tokenizer):
+    video = Input((max_video_len, frame_size))
+    question = Input((max_question_len,), dtype='int32')
+
+    embedding_matrix = load_embedding_weight(tokenizer)
+    embedding_size = 300
+    embedding_layer = Embedding(vocabulary_size, embedding_size, input_length=max_question_len, mask_zero=True,
+                                weights=[embedding_matrix], trainable=False)(question)
+    embedding_mask = Masking()(embedding_layer)
+    video_mask = Masking()(video)
+
+    question_encoding = Bidirectional(GRU(512, return_sequences=True, recurrent_dropout=0.5))(embedding_mask)
+    question_encoding = Bidirectional(GRU(512, return_sequences=True, recurrent_dropout=0.5))(question_encoding)
+    question_encoding = Bidirectional(GRU(512, recurrent_dropout=0.5, return_state=True))(question_encoding)[1:]
+    decoder = Bidirectional(GRU(512, return_sequences=True, recurrent_dropout=0.5))(video_mask,
+                                                                                    initial_state=question_encoding)
+    decoder = Bidirectional(GRU(512, return_sequences=True, recurrent_dropout=0.5))(decoder)
+    decoder = Bidirectional(GRU(512, return_sequences=False, recurrent_dropout=0.5))(decoder)
+
     logit = Dense(answer_size, activation='sigmoid')(decoder)
     return Model(inputs=[video, question], outputs=logit)
