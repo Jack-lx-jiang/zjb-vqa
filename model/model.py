@@ -1,7 +1,7 @@
 from keras import backend as K
 from keras import regularizers
 from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation, Input, \
-    Dropout, Conv2D, MaxPooling2D, Flatten
+    Dropout, Conv2D, MaxPooling2D, Flatten, Reshape, MaxPooling3D
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
@@ -160,6 +160,26 @@ def bilinear_model3(vocabulary_size, max_question_len, max_video_len, frame_size
     return Model(inputs=[video, question], outputs=logit)
 
 
+def stack_attention(video_input, question_input, max_video_len):
+    question_part = Dense(1024)(question_input)
+    question_part = RepeatVector(max_video_len)(question_part)
+
+    # video_dropout = Dropout(0.5)(video)
+    video_part = Dense(1024)(video_input)
+
+    attention_score = Dense(1)(multiply([question_part, video_part]))
+    attention = Softmax(axis=-2)(attention_score)
+    video_encoding = Lambda(lambda x: K.sum(x, axis=-2))(multiply([video_input, attention]))
+
+    question_part2 = Dense(1024)(question_input)
+    video_part2 = Dense(1024)(video_encoding)
+    # joint = Dense(512)(multiply([question_part2, video_part2]))
+    joint = multiply([question_part2, video_part2])
+
+    return joint
+
+
+
 def bilinear_model4(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size, tokenizer):
     video = Input((max_video_len, frame_size))
     question = Input((max_question_len,), dtype='int32')
@@ -167,19 +187,71 @@ def bilinear_model4(vocabulary_size, max_question_len, max_video_len, frame_size
     embedding_size = 300
     embedding_layer = Embedding(vocabulary_size, embedding_size, input_length=max_question_len, mask_zero=True,
                                 weights=[embedding_matrix], trainable=False)(question)
-    question_encoding = GRU(512)(Masking()(Dropout(0.5)(embedding_layer)))
-    question_part = Dense(1024)(question_encoding)
+    question_encoding = GRU(1024, dropout=0.5)(Masking()(embedding_layer))
+    # question_encoding = GRU(512)(question_encoding)
+
+    joint1 = stack_attention(video, question_encoding, max_video_len)
+    joint2 = stack_attention(video, joint1, max_video_len)
+    joint3 = stack_attention(video, joint2, max_video_len)
+    joint4 = stack_attention(video, joint3, max_video_len)
+    logit = Dense(answer_size, activation='sigmoid')(joint4)
+    return Model(inputs=[video, question], outputs=logit)
+
+
+def visual_attention(video_input, question_input, max_video_len):
+    question_part = Dense(1024)(question_input)
     question_part = RepeatVector(max_video_len)(question_part)
 
-    video_dropout = Dropout(0.5)(video)
-    video_part = Dense(1024)(video_dropout)
+    video_part = Dense(1024)(video_input)
 
     attention_score = Dense(1)(multiply([question_part, video_part]))
     attention = Softmax(axis=-2)(attention_score)
-    video_encoding = Lambda(lambda x: K.sum(x, axis=-2))(multiply([video, attention]))
+    return attention
 
-    question_part2 = Dense(1024)(question_encoding)
-    video_part2 = Dense(1024)(video_encoding)
-    joint = Dense(2048)(multiply([question_part2, video_part2]))
-    logit = Dense(answer_size, activation='sigmoid')(joint)
-    return Model(inputs=[video, question], outputs=logit)
+
+def shallow_feature_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size, tokenizer):
+    video = Input((max_video_len, frame_size))
+    shallow_feature_input = Input((max_video_len, 14, 14, 1024))
+    shallow_feature_input_maxpool = MaxPooling3D(pool_size=(1,2,2), strides=(1,2,2))(shallow_feature_input)
+    question = Input((max_question_len,), dtype='int32')
+    embedding_matrix = load_embedding_weight(tokenizer)
+    embedding_size = 300
+    embedding_layer = Embedding(vocabulary_size, embedding_size, input_length=max_question_len, mask_zero=True,
+                                weights=[embedding_matrix], trainable=False)(question)
+    question_encoding = GRU(1024, dropout=0.5)(Masking()(embedding_layer))
+
+    # frame attention
+    question_part = Dense(1024)(question_encoding)
+    question_for_frame = RepeatVector(max_video_len)(question_part)
+
+    video_part = Dense(1024)(video)
+
+    attention_score = Dense(1)(multiply([question_for_frame, video_part]))
+    attention = Softmax(axis=-2)(attention_score)
+    video_joint = Lambda(lambda x: K.sum(x, axis=-2))(multiply([video, attention]))
+
+    # shallow attention
+    # shallow_feature = Reshape((max_video_len, 196, 1024))(shallow_feature_input)
+    shallow_feature = Reshape((max_video_len, 49, 1024))(shallow_feature_input_maxpool)
+    # question_for_region = RepeatVector(196)(question_part)
+    question_for_region = RepeatVector(49)(question_part)
+    visual_dense = Dense(1024)
+    scorer = Dense(1)
+    sm = Softmax(axis=-2)
+    shallow_joints_list = []
+    for i in range(max_video_len):
+        cur_frame = Lambda(lambda x: shallow_feature[:,i,:])(shallow_feature)
+        region_part = visual_dense(cur_frame)
+        region_attention_score = scorer(multiply([question_for_region, region_part]))
+        region_attention = sm(region_attention_score)
+        joint = Lambda(lambda x: K.sum(x, axis=-2))(multiply([cur_frame, region_attention]))
+        shallow_joints_list.append(joint)
+
+    shallow_joints = Concatenate()(shallow_joints_list)
+    shallow_joints = Reshape((max_video_len,1024))(shallow_joints)
+    shallow_joint_combine = Lambda(lambda x: K.sum(x, axis=-2))(multiply([shallow_joints, attention]))
+    video_joint_sum = Dense(1024)(video_joint)
+    shallow_joint_combine_sum = Dense(1024)(shallow_joint_combine)
+    visual_feature_joint = multiply([video_joint_sum, shallow_joint_combine_sum])
+    logit = Dense(answer_size, activation='sigmoid')(visual_feature_joint)
+    return Model(inputs=[video, shallow_feature_input, question], outputs=logit)

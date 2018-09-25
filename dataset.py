@@ -64,7 +64,7 @@ class Dataset():
         return vid, questions, answers
 
     # the generator function for model's input
-    def generator(self, batch_size, phase, train_threshold=0.95, fluctuation=0.2):
+    def generator(self, batch_size, phase, train_threshold=0.95, fluctuation=0.2, shallow_feature=""):
         if phase == 'val':
             vid, questions, answers = self.preprocess_text('train')
         else:
@@ -98,6 +98,8 @@ class Dataset():
             count = 0
             while count < len(inds):
                 X_video = np.zeros((batch_size, self.max_video_len, self.frame_size))
+                if shallow_feature!= "":
+                    X_shallow = np.zeros((batch_size, self.max_video_len, 14, 14, 1024))
                 X_question = np.zeros((batch_size, self.max_question_len), dtype=np.int32)
                 Y = np.zeros((batch_size, self.answer_size), dtype=np.int32)
                 i = 0
@@ -107,6 +109,9 @@ class Dataset():
                         cur_question = inds[(count + j) % len(inds)]
                         # load feature maps of current question's video. shape: (video_len, feature_map_size)
                         cur_video = np.load(self.feature_dir + '/' + vid[cur_question // 5] + '_resnet.npy')
+                        if shallow_feature != "":
+                            cur_shallow = np.load(self.feature_dir+'_'+shallow_feature+ '/' + vid[cur_question // 5] + '_resnet.npy')
+                            # print('extract')
                         # extract cur_video[:min{cur_video.shape[0],max_video_len}]
                         frames_num = min(self.max_video_len, math.ceil(cur_video.shape[0] / self.interval))
                         frame_indx = [f for f in range(0, frames_num * self.interval, self.interval)]
@@ -120,6 +125,7 @@ class Dataset():
                                     if 0 <= new_frame_indx < cur_video.shape[0]:
                                         frame_indx[cur_frame_indx] = new_frame_indx
                         X_video[i, :frames_num] = cur_video[frame_indx]
+                        X_shallow[i, :frames_num] = cur_shallow[frame_indx]
                         q = questions[cur_question]
                         X_question[i, :len(q)] = q
                         if phase != 'test':
@@ -131,13 +137,16 @@ class Dataset():
                     j += 1
                 Y[Y > 1] = 1
                 try:
-                    yield [X_video, X_question], Y
+                    if shallow_feature != "":
+                        yield [X_video, X_shallow, X_question], Y
+                    else:
+                        yield [X_video, X_question], Y
                 except Exception as e:
                     print(str(e))
                 count += j
 
     # extract video frames' feature
-    def compute_frame_feature(self):
+    def compute_frame_feature(self, target_layer='avg_pool'):
         origin_image_format = keras.backend.image_data_format()
         # set image_data_format to channels_last since some code is sensitive to channels
         keras.backend.set_image_data_format('channels_last')
@@ -145,17 +154,23 @@ class Dataset():
         batch_size = self.MINI_BATCHES
         interval = 5
         res_model = ResNet50(weights='imagenet')
-        model = Model(inputs=res_model.input, outputs=res_model.get_layer('avg_pool').output)
-
+        model = Model(inputs=res_model.input, outputs=res_model.get_layer(target_layer).output)
+        if target_layer == 'avg_pool':
+            cur_feature_dir = self.feature_dir
+        else:
+            cur_feature_dir = self.feature_dir+'_'+target_layer
         for phase in self.phases:
             vid_dir = self.base_dir + '/' + phase
             for i, v in enumerate(os.listdir(vid_dir)):
-                feature_file = self.feature_dir + '/' + v.split('.')[0] + '_resnet.npy'
+                feature_file = cur_feature_dir + '/' + v.split('.')[0] + '_resnet.npy'
                 if os.path.exists(feature_file):
                     continue
                 print(vid_dir + '/' + str(v), i)
                 video = imageio.get_reader(vid_dir + '/' + str(v), 'ffmpeg')
-                vid_descriptors = np.zeros((self.BATCHES * batch_size, 2048))
+                if target_layer=='avg_pool':
+                    vid_descriptors = np.zeros((self.BATCHES * batch_size, 2048))
+                else:
+                    vid_descriptors = np.zeros((self.BATCHES * batch_size,)+res_model.get_layer(target_layer).output_shape[1:])
                 frame_count = 0
                 frame_ind = 0
                 stop = False
@@ -174,12 +189,15 @@ class Dataset():
 
                         frame_ind += interval
                     batch = preprocess_input(batch)
-                    vid_descriptors[b * batch_size:(b + 1) * batch_size] = model.predict_on_batch(batch).reshape(
-                        batch.shape[0], -1)
+                    if target_layer == 'avg_pool':
+                        vid_descriptors[b * batch_size:(b + 1) * batch_size] = model.predict_on_batch(batch).reshape(
+                            batch.shape[0], -1)
+                    else:
+                        vid_descriptors[b * batch_size:(b + 1) * batch_size] = model.predict_on_batch(batch)
                     if stop:
                         break
                 video.close()
-                if not os.path.exists(self.feature_dir):
-                    os.mkdir(self.feature_dir)
+                if not os.path.exists(cur_feature_dir):
+                    os.mkdir(cur_feature_dir)
                 np.save(feature_file, vid_descriptors[:frame_count])
         keras.backend.set_image_data_format(origin_image_format)

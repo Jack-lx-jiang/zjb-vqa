@@ -2,6 +2,7 @@ import os
 import pickle as p
 import time
 from collections import Counter
+import math
 
 import click
 import numpy as np
@@ -79,8 +80,8 @@ def train(ctx, nb_step, epoch):
     # gen = (i for i in dataset.generator(batch_size, 'train'))
     # x, y = next(gen)
     # dum_val = (x, y)
-    trained = model.fit_generator(dataset.generator(batch_size, 'train', threds), nb_step, epoch,
-                                  validation_data=dataset.generator(batch_size, 'val', threds),
+    trained = model.fit_generator(dataset.generator(batch_size, 'train', threds, shallow_feature='activation_40'), nb_step, epoch,
+                                  validation_data=dataset.generator(batch_size, 'val', threds, shallow_feature='activation_40'),
                                   validation_steps=val_step,
                                   # validation_data = dum_val,
                                   callbacks=[  # EarlyStopping(patience=5),
@@ -119,8 +120,9 @@ def test(ctx, pkl_name):
 @click.option('--pkl_name', default='latest.pkl')
 @click.pass_context
 def eval(ctx, nb_step, pkl_name):
+    nb_samples = 3325 + 3200
     if not nb_step:
-        nb_step = 3325 * 5 // batch_size + 1
+        nb_step = nb_samples * 5 // batch_size + 1
     exp_name = ctx.obj['exp_name']
     model.load_weights(exp_name + pkl_name)
     metrics = model.evaluate_generator(dataset.generator(batch_size, 'train'), nb_step)
@@ -128,6 +130,30 @@ def eval(ctx, nb_step, pkl_name):
     for i in range(len(model.metrics_names)):
         print(str(model.metrics_names[i]) + ": " + str(metrics[i]))
 
+
+@cli.command()
+@click.option('--pkl_name', default='latest.pkl')
+@click.pass_context
+def val_analysis(ctx, pkl_name):
+    exp_name = ctx.obj['exp_name']
+    model.load_weights(exp_name + pkl_name)
+    val_threshold = 0.95
+    vid, questions, answers = dataset.preprocess_text('train')
+    split = math.floor(len(vid) * val_threshold)
+    vid = vid[split:]
+    questions = questions[split * 5:]
+    answers = answers[split*5*3:]
+    nb_step = len(questions) //batch_size +1
+    prediction = model.predict_generator(dataset.generator(batch_size, 'val', train_threshold=val_threshold),
+                                         steps=nb_step, verbose=1)
+    prediction = np.argmax(prediction, axis=1)
+    with open('analysis.txt', 'w') as f:
+        for idx, v_id in enumerate(vid):
+            s = [v_id]
+            for jdx, question in enumerate(questions[idx * 5:idx * 5 + 5]):
+                answer = dataset.dict.idx2ans[prediction[idx * 5 + jdx]]
+                s.append(',{},{},{},{},{}'.format(question, answer, answers[idx*5*3+jdx*3], answers[idx*5*3+jdx*3+1], answers[idx*5*3+jdx*3+2]))
+            f.write(''.join(s) + '\n')
 
 if __name__ == '__main__':
     cli()
