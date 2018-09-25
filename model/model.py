@@ -1,7 +1,7 @@
 from keras import backend as K
 from keras import regularizers
 from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation, Input, \
-    Dropout, Conv2D, MaxPooling2D, Flatten, Reshape, MaxPooling3D, Multiply
+    Dropout, Conv2D, MaxPooling2D, Flatten, Reshape, MaxPooling3D
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
@@ -272,17 +272,3 @@ def shallow_feature_model(vocabulary_size, max_question_len, max_video_len, fram
     model.summary()
     # return model
     return multi_gpu_model(model)
-
-# def shallow_feature_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size, tokenizer):
-#     video = Input((max_video_len, frame_size))
-#     shallow_feature_input = Input((max_video_len, 14, 14, 1024))
-#     shallow_feature_input_maxpool = Reshape((max_video_len, 196, -1))(shallow_feature_input)
-#     shallow_feature_input_maxpool = MaxPooling2D(pool_size=(20,14), strides=(20,14))(shallow_feature_input_maxpool)
-#     question = Input((max_question_len,), dtype='int32')
-#     shallow_feature_input_maxpool = Reshape((-1,))(shallow_feature_input_maxpool)
-#
-#     logit = Dense(answer_size, activation='sigmoid')(shallow_feature_input_maxpool)
-#     # logit = Dense(answer_size, activation='sigmoid')(video_joint)
-#     # logit = Reshape((answer_size,))(logit)
-#     # return Model(inputs=[video, shallow_feature_input, question], outputs=logit)
-#     return multi_gpu_model(Model(inputs=[video, shallow_feature_input, question], outputs=logit))
