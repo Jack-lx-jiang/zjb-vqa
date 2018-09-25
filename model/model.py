@@ -1,10 +1,11 @@
 from keras import backend as K
 from keras import regularizers
 from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation, Input, \
-    Dropout, Conv2D, MaxPooling2D, Flatten, Reshape, MaxPooling3D
+    Dropout, Conv2D, MaxPooling2D, Flatten, Reshape, MaxPooling3D, Multiply
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
+from keras.utils import multi_gpu_model
 
 from util.utils import load_embedding_weight
 from util.utils import outer_product
@@ -228,30 +229,60 @@ def shallow_feature_model(vocabulary_size, max_question_len, max_video_len, fram
 
     attention_score = Dense(1)(multiply([question_for_frame, video_part]))
     attention = Softmax(axis=-2)(attention_score)
-    video_joint = Lambda(lambda x: K.sum(x, axis=-2))(multiply([video, attention]))
+    video_joint = Lambda(lambda x: K.sum(x, axis=-2), name='video_joint')(multiply([video, attention]))
 
     # shallow attention
     # shallow_feature = Reshape((max_video_len, 196, 1024))(shallow_feature_input)
     shallow_feature = Reshape((max_video_len, 49, 1024))(shallow_feature_input_maxpool)
     # question_for_region = RepeatVector(196)(question_part)
-    question_for_region = RepeatVector(49)(question_part)
-    visual_dense = Dense(1024)
-    scorer = Dense(1)
-    sm = Softmax(axis=-2)
-    shallow_joints_list = []
-    for i in range(max_video_len):
-        cur_frame = Lambda(lambda x: shallow_feature[:,i,:])(shallow_feature)
-        region_part = visual_dense(cur_frame)
-        region_attention_score = scorer(multiply([question_for_region, region_part]))
-        region_attention = sm(region_attention_score)
-        joint = Lambda(lambda x: K.sum(x, axis=-2))(multiply([cur_frame, region_attention]))
-        shallow_joints_list.append(joint)
+    # question_for_region = RepeatVector(49)(question_part)
 
-    shallow_joints = Concatenate()(shallow_joints_list)
-    shallow_joints = Reshape((max_video_len,1024))(shallow_joints)
-    shallow_joint_combine = Lambda(lambda x: K.sum(x, axis=-2))(multiply([shallow_joints, attention]))
+    region_part = Dense(1024)(shallow_feature)
+    question_for_region = RepeatVector(max_video_len*49)(question_part)
+    question_for_region = Reshape((max_video_len, 49, -1))(question_for_region)
+    region_attention_score = Dense(1)(multiply([region_part, question_for_region]))
+    region_attention = Softmax(axis=-2)(region_attention_score)
+    shallow_joints = Lambda(lambda x: K.sum(x, axis=-2))(multiply([shallow_feature, region_attention]))
+
+    # visual_dense = Dense(1024)
+    # scorer = Dense(1)
+    # sm = Softmax(axis=-2)
+    # shallow_joints_list = []
+    # mul = Multiply()
+    # shallow_joint_layer = Lambda(lambda x: K.sum(x, axis=-2), name='shallow_joints')
+    # for i in range(max_video_len):
+    #     cur_frame = Lambda(lambda x: shallow_feature[:,i,:,:])(shallow_feature)
+    #     region_part = visual_dense(cur_frame)
+    #     # print(cur_frame.shape)
+    #     region_attention_score = scorer(mul([question_for_region, region_part]))
+    #     region_attention = sm(region_attention_score)
+    #     joint = shallow_joint_layer(mul([cur_frame, region_attention]))
+    #     shallow_joints_list.append(joint)
+    #
+    # shallow_joints = Concatenate()(shallow_joints_list)
+    # shallow_joints = Reshape((max_video_len,1024))(shallow_joints)
+    shallow_joint_combine = Lambda(lambda x: K.sum(x, axis=-2), name='shallow_joint_sum')(multiply([shallow_joints, attention]))
     video_joint_sum = Dense(1024)(video_joint)
     shallow_joint_combine_sum = Dense(1024)(shallow_joint_combine)
     visual_feature_joint = multiply([video_joint_sum, shallow_joint_combine_sum])
     logit = Dense(answer_size, activation='sigmoid')(visual_feature_joint)
-    return Model(inputs=[video, shallow_feature_input, question], outputs=logit)
+    # logit = Dense(answer_size, activation='sigmoid')(video_joint)
+    # logit = Reshape((answer_size,))(logit)
+    model = Model(inputs=[video, shallow_feature_input, question], outputs=logit)
+    model.summary()
+    # return model
+    return multi_gpu_model(model)
+
+# def shallow_feature_model(vocabulary_size, max_question_len, max_video_len, frame_size, answer_size, tokenizer):
+#     video = Input((max_video_len, frame_size))
+#     shallow_feature_input = Input((max_video_len, 14, 14, 1024))
+#     shallow_feature_input_maxpool = Reshape((max_video_len, 196, -1))(shallow_feature_input)
+#     shallow_feature_input_maxpool = MaxPooling2D(pool_size=(20,14), strides=(20,14))(shallow_feature_input_maxpool)
+#     question = Input((max_question_len,), dtype='int32')
+#     shallow_feature_input_maxpool = Reshape((-1,))(shallow_feature_input_maxpool)
+#
+#     logit = Dense(answer_size, activation='sigmoid')(shallow_feature_input_maxpool)
+#     # logit = Dense(answer_size, activation='sigmoid')(video_joint)
+#     # logit = Reshape((answer_size,))(logit)
+#     # return Model(inputs=[video, shallow_feature_input, question], outputs=logit)
+#     return multi_gpu_model(Model(inputs=[video, shallow_feature_input, question], outputs=logit))
