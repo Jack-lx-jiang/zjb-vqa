@@ -1,36 +1,33 @@
 import math
-import os
 import random
 from collections import Counter
 
-import imageio
-import keras
 import numpy as np
-from keras.applications.resnet50 import ResNet50
-from keras.applications.resnet50 import preprocess_input
-from keras.models import Model
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
-from skimage import transform
 
 from mapping import AnswerMapping
 
 
 class Dataset():
-    # phases = ['train', 'test', 'val']
-    phases = ['train', 'test']
-    BATCHES = 1000  # all batch
-    MINI_BATCHES = 100  # frames pre batch
+    phases = ['train', 'test', 'val']
 
-    def __init__(self, phase=None, base_dir=None, minimum_appear=3, interval=3):
+    def __init__(self):
+        self.configured = False
+        pass
+
+    def set_config(self, base_dir=None, minimum_appear=3, max_video_len=100, max_question_len=20, train_threshold=0.95,
+                   interval=1, feature_dir='dataset/feature', feature=['avg_pool']):
+        self.configured = True
         self.base_dir = base_dir or 'dataset'
-        self.feature_dir = self.base_dir + '/feature'
-        phase = phase or self.phases[0]
+        self.max_video_len = max_video_len
+        self.train_threshold = train_threshold
+        self.interval = interval
+        self.feature_dir = feature_dir
+        self.feature = feature
 
         self.dict = AnswerMapping()
-        vid, questions, answers = self.preprocess_text(phase)
-        # reduce the scale of answers
-        # minium_count = 3
+        vid, questions, answers = self.preprocess_text('train')
 
         rare_set = set([ans for ans, a_num in Counter(answers).items() if a_num <= minimum_appear])
         answers = [a for a in answers if a not in rare_set]
@@ -40,14 +37,26 @@ class Dataset():
         self.tokenizer.fit_on_texts(questions)
 
         self.vocabulary_size = len(self.tokenizer.word_index) + 1
-        self.max_video_len = 100
-        self.max_question_len = 20
-        self.interval = interval
-        # the feature map size of each frame
-        self.frame_size = 2048
+        self.max_question_len = max_question_len
+        print('finish dataset configuration')
+
+    def get_nb_steps(self, phase, batch_size):
+        assert self.configured
+        if phase == 'val':
+            vid, questions, answers = self.preprocess_text('train')
+        else:
+            vid, questions, answers = self.preprocess_text(phase)
+        if phase == 'train':
+            nb_samples = math.floor(len(vid) * 5 * self.train_threshold)
+        elif phase == 'val':
+            nb_samples = math.ceil(len(vid) * 5 * (1 - self.train_threshold))
+        else:
+            nb_samples = len(vid) * 5
+        return nb_samples // batch_size + 1
 
     # split text data into three parts: video_id, questions and answers.
     def preprocess_text(self, phase):
+        assert self.configured
         assert (phase in self.phases)
 
         vid = []
@@ -64,12 +73,14 @@ class Dataset():
         return vid, questions, answers
 
     # the generator function for model's input
-    def generator(self, batch_size, phase, train_threshold=0.95, fluctuation=0.2):
+    def generator(self, phase, batch_size):
+        assert self.configured
         if phase == 'val':
             vid, questions, answers = self.preprocess_text('train')
         else:
             vid, questions, answers = self.preprocess_text(phase)
         questions = self.tokenizer.texts_to_sequences(questions)
+        # transfer answers to one_hot format
         if phase != 'test':
             answers = self.dict.tokenize(answers)
             one_hot_answers = []
@@ -83,8 +94,10 @@ class Dataset():
                     self.answer_size)
                 one_hot_answers.append(cur_answer)
             assert (len(one_hot_answers) == len(questions))
+
+        # split dataset
         all_index = [i for i in range(len(vid) * 5)]
-        split = math.floor(len(vid) * train_threshold)
+        split = math.floor(len(vid) * self.train_threshold)
         if phase == 'train':
             inds = all_index[:split * 5]
         elif phase == 'val':
@@ -92,34 +105,32 @@ class Dataset():
         else:
             inds = all_index
 
+        # get outputs shape
+        output_shape = [np.load(self.feature_dir + '/' + vid[0] + '_' + f + '_resnet.npy').shape[1:] for f in
+                        self.feature]
+        print(output_shape)
+
+        bs = batch_size
         while True:
             if phase == 'train':
                 random.shuffle(inds)
             count = 0
             while count < len(inds):
-                X_video = np.zeros((batch_size, self.max_video_len, self.frame_size))
-                X_question = np.zeros((batch_size, self.max_question_len), dtype=np.int32)
-                Y = np.zeros((batch_size, self.answer_size), dtype=np.int32)
+                X_videos = [np.zeros((bs, self.max_video_len,) + os for os in output_shape)]
+                X_question = np.zeros((bs, self.max_question_len), dtype=np.int32)
+                Y = np.zeros((bs, self.answer_size), dtype=np.int32)
                 i = 0
                 j = 0
-                while i < batch_size:
+                while i < bs:
                     try:
                         cur_question = inds[(count + j) % len(inds)]
-                        # load feature maps of current question's video. shape: (video_len, feature_map_size)
-                        cur_video = np.load(self.feature_dir + '/' + vid[cur_question // 5] + '_resnet.npy')
-                        # extract cur_video[:min{cur_video.shape[0],max_video_len}]
-                        frames_num = min(self.max_video_len, math.ceil(cur_video.shape[0] / self.interval))
-                        frame_indx = [f for f in range(0, frames_num * self.interval, self.interval)]
-                        if self.interval >= 3 and fluctuation != 0.0:
-                            changed_set = set()
-                            for f in range(0, math.ceil(frames_num * fluctuation)):
-                                cur_frame_indx = random.randint(0, frames_num - 1)
-                                if cur_frame_indx not in changed_set:
-                                    changed_set.add(cur_frame_indx)
-                                    new_frame_indx = frame_indx[cur_frame_indx] + random.randint(-1, 1)
-                                    if 0 <= new_frame_indx < cur_video.shape[0]:
-                                        frame_indx[cur_frame_indx] = new_frame_indx
-                        X_video[i, :frames_num] = cur_video[frame_indx]
+                        for fi, f in enumerate(self.feature):
+                            # load feature maps of current question's video. shape: (video_len, feature_map_size)
+                            cur_video = np.load(
+                                self.feature_dir + '/' + vid[cur_question // 5] + '_' + f + '_resnet.npy')
+                            # extract cur_video[:min{cur_video.shape[0],max_video_len}]
+                            X_videos[fi][i, :math.ceil(cur_video.shape[0] / self.interval)] = cur_video[
+                                                                                              :self.max_video_len * self.interval:self.interval]
                         q = questions[cur_question]
                         X_question[i, :len(q)] = q
                         if phase != 'test':
@@ -131,55 +142,7 @@ class Dataset():
                     j += 1
                 Y[Y > 1] = 1
                 try:
-                    yield [X_video, X_question], Y
+                    yield X_videos + [X_question], Y
                 except Exception as e:
                     print(str(e))
                 count += j
-
-    # extract video frames' feature
-    def compute_frame_feature(self):
-        origin_image_format = keras.backend.image_data_format()
-        # set image_data_format to channels_last since some code is sensitive to channels
-        keras.backend.set_image_data_format('channels_last')
-
-        batch_size = self.MINI_BATCHES
-        interval = 5
-        res_model = ResNet50(weights='imagenet')
-        model = Model(inputs=res_model.input, outputs=res_model.get_layer('avg_pool').output)
-
-        for phase in self.phases:
-            vid_dir = self.base_dir + '/' + phase
-            for i, v in enumerate(os.listdir(vid_dir)):
-                feature_file = self.feature_dir + '/' + v.split('.')[0] + '_resnet.npy'
-                if os.path.exists(feature_file):
-                    continue
-                print(vid_dir + '/' + str(v), i)
-                video = imageio.get_reader(vid_dir + '/' + str(v), 'ffmpeg')
-                vid_descriptors = np.zeros((self.BATCHES * batch_size, 2048))
-                frame_count = 0
-                frame_ind = 0
-                stop = False
-                for b in range(self.BATCHES):
-                    batch = np.zeros((batch_size, 224, 224, 3))
-                    for t in range(batch_size):
-                        try:
-                            frame = video.get_data(frame_ind)
-                        except (imageio.core.CannotReadFrameError, IndexError):
-                            stop = True
-                            break
-                        else:
-                            frame = transform.resize(frame, (224, 224))
-                            batch[t] = frame
-                            frame_count += 1
-
-                        frame_ind += interval
-                    batch = preprocess_input(batch)
-                    vid_descriptors[b * batch_size:(b + 1) * batch_size] = model.predict_on_batch(batch).reshape(
-                        batch.shape[0], -1)
-                    if stop:
-                        break
-                video.close()
-                if not os.path.exists(self.feature_dir):
-                    os.mkdir(self.feature_dir)
-                np.save(feature_file, vid_descriptors[:frame_count])
-        keras.backend.set_image_data_format(origin_image_format)
