@@ -112,10 +112,8 @@ class BaseModel():
                 if not os.path.exists(self.feature_dir):
                     os.mkdir(self.feature_dir)
                 try:
-                    ffi = 0
                     for ff, vid_des in zip(feature_files, vid_descriptors):
-                        np.save(ff, vid_des[ffi][:frame_count])
-                        ffi += 1
+                        np.save(ff, vid_des[:frame_count])
                 except Exception as e:
                     print(e)
                     gen = (ff for ff in feature_files if os.path.exists(ff))
