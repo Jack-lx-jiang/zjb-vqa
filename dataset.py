@@ -116,7 +116,7 @@ class Dataset():
                 random.shuffle(inds)
             count = 0
             while count < len(inds):
-                X_videos = [np.zeros((bs, self.max_video_len,) + os for os in output_shape)]
+                X_videos = [np.zeros((bs, self.max_video_len,) + os) for os in output_shape]
                 X_question = np.zeros((bs, self.max_question_len), dtype=np.int32)
                 Y = np.zeros((bs, self.answer_size), dtype=np.int32)
                 i = 0

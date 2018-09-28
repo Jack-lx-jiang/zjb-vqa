@@ -1,6 +1,6 @@
 from keras import backend as K
 from keras.layers import Masking, GRU, RepeatVector, Concatenate, Softmax, multiply, Lambda, Add, Activation, Input, \
-    Bidirectional, Dropout, Reshape
+    Bidirectional, Dropout
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
@@ -129,25 +129,18 @@ class ED_model(BaseModel):
         BaseModel.__init__(self)
 
     def build(self):
-        video = Input((self.max_video_len, 1, 1, 1024))
-        video_reshaped = Reshape((self.max_video_len, 1024))(video)
+        video = Input((self.max_video_len, 2048))
 
         question = Input((self.max_question_len,), dtype='int32')
 
+        embedding_matrix = load_embedding_weight(self.dataset.tokenizer)
         embedding_size = 300
-        embedding_layer = Embedding(self.dataset.vocabulary_size, embedding_size, input_length=self.max_question_len,
-                                    mask_zero=True)(question)
-        question_encoding = GRU(300)(Masking()(embedding_layer))
-        qe_repeat = RepeatVector(self.max_video_len)(question_encoding)
-        video_question = Concatenate()([video_reshaped, qe_repeat])
-        attention_dense1 = Dense(512)(video_question)
-        attention_dense2 = Dense(1)(attention_dense1)
-        attention_score = Softmax(axis=-2)(attention_dense2)
-        video_encoding = Lambda(lambda x: K.sum(x, axis=-2))(multiply([video_reshaped, attention_score]))
-        video_encoding2 = Dense(512)(video_encoding)
-        question_encoding2 = Dense(512)(question_encoding)
-        combine_encoding = multiply([video_encoding2, question_encoding2])
-        decode = Dense(2048)(combine_encoding)
-        logit = Dense(self.dataset.answer_size, activation='sigmoid')(decode)
+        embedding_layer = Embedding(self.dataset.vocabulary_size, embedding_size,
+                                    input_length=self.dataset.max_question_len, mask_zero=True,
+                                    weights=[embedding_matrix], trainable=False)(question)
+        question_encoding = GRU(512)(Masking()(embedding_layer))
+        video_dropout = Dropout(0.5)(video)
+        decoder = GRU(512)(Masking()(video_dropout), initial_state=[question_encoding])
+        logit = Dense(self.dataset.answer_size, activation='sigmoid')(decoder)
         self.model = Model(inputs=[video, question], outputs=logit)
         self.model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])

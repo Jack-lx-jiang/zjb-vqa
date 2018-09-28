@@ -1,5 +1,6 @@
 import os
 import pickle as p
+import re
 import sys
 import time
 from collections import Counter
@@ -15,21 +16,28 @@ from skimage import transform
 
 class BaseModel():
     def __init__(self):
+        reg = re.compile(r"(?<=inter)\d+")
+        # print(self.feature_dir)
+        dataset_interval = int(reg.search(self.feature_dir).group(0))
+        assert dataset_interval <= self.interval
         if not os.path.exists(self.feature_dir):
             print('Features not found')
             print('Generating feature.....')
             self.preprocess_video()
         self.dataset.set_config(self.data_dir, self.minimum_appear, self.max_video_len, self.max_question_len,
-                                self.train_threshold, self.interval, self.feature_dir, self.features)
+                                self.train_threshold, self.interval // dataset_interval, self.feature_dir,
+                                self.features)
         self.exp_name = ''
 
     def train(self, batch_size, epoch):
         time_now = int(time.time())
         time_local = time.localtime(time_now)
         dt = time.strftime("%Y-%m-%d_%H-%M-%S", time_local)
-        self.exp_name = 'experiments/{}/{}/'.format(self.model_name, dt)
+        self.exp_name = 'experiments/{}/{}'.format(self.model_name, dt)
         ename = self.exp_name
         data = self.dataset
+        if not os.path.exists(ename):
+            os.makedirs(ename)
         trained = self.model.fit_generator(data.generator('train', batch_size), data.get_nb_steps('train', batch_size),
                                            epoch,
                                            validation_data=data.generator('val', batch_size),
@@ -37,13 +45,13 @@ class BaseModel():
                                            # validation_data = dum_val,
                                            callbacks=[  # EarlyStopping(patience=5),
                                                ModelCheckpoint(
-                                                   ename + 'E{epoch:02d}-L{val_loss:.2f}-{val_multians_accuracy:.2f}.pkl',
+                                                   ename + '/E{epoch:02d}-L{val_loss:.2f}-{val_multians_accuracy:.2f}.pkl',
                                                    monitor='val_multians_accuracy',
                                                    save_best_only=False,
                                                    period=5)])
-        p.dump(trained.history, open(ename + 'history.pkl', 'wb'))
-        self.model.save_weights(ename + 'latest.pkl')
-        p.dump(self, open(ename + 'ModelInstance.pkl', 'wb'))
+        p.dump(trained.history, open(ename + '/history.pkl', 'wb'))
+        self.model.save_weights(ename + '/latest.pkl')
+        p.dump(self, open(ename + '/ModelInstance.pkl', 'wb'))
 
     def test(self, batch_size, pkl_name='latest'):
         self.model.load_weights(self.exp_name + pkl_name)
