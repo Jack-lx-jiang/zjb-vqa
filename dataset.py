@@ -128,8 +128,9 @@ class Dataset():
                             cur_video = np.load(
                                 self.feature_dir + '/' + vid[cur_question // 5] + '_' + f + '_resnet.npy')
                             # extract cur_video[:min{cur_video.shape[0],max_video_len}]
-                            X_videos[fi][i, :math.ceil(cur_video.shape[0] / self.interval)] = cur_video[
-                                                                                              :self.max_video_len * self.interval:self.interval]
+                            cur_video_len = math.ceil(cur_video.shape[0] / self.interval)
+                            X_videos[fi][i, :cur_video_len] = cur_video[
+                                                              :self.max_video_len * self.interval:self.interval]
                         q = questions[cur_question]
                         X_question[i, :len(q)] = q
                         if phase != 'test':

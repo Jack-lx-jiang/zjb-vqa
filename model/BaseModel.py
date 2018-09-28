@@ -45,11 +45,11 @@ class BaseModel():
                                       validation_steps=data.get_nb_steps('val', batch_size),
                                       # validation_data = dum_val,
                                       callbacks=[  # EarlyStopping(patience=5),
-                                               ModelCheckpoint(
-                                                   ename + 'E{epoch:02d}-L{val_loss:.2f}-{val_multians_accuracy:.2f}.pkl',
-                                                   monitor='val_multians_accuracy',
-                                                   save_best_only=False,
-                                                   period=5)])
+                                          ModelCheckpoint(
+                                              ename + 'E{epoch:02d}-L{val_loss:.2f}-{val_multians_accuracy:.2f}.pkl',
+                                              monitor='val_multians_accuracy',
+                                              save_best_only=False,
+                                              period=5)])
         p.dump(trained.history, open(ename + 'history.pkl', 'wb'))
         model.save_weights(ename + 'latest.pkl')
         # p.dump(self, open(ename + 'ModelInstance.pkl', 'wb'))
@@ -61,7 +61,7 @@ class BaseModel():
         vid, questions, _ = data.preprocess_text('test')
         prediction = model.predict_generator(data.generator('test', batch_size),
                                              steps=data.get_nb_steps('test', batch_size),
-                                                  verbose=1)
+                                             verbose=1)
         prediction = np.argmax(prediction, axis=1)
         # get statistics of counter
         print(Counter(prediction))
