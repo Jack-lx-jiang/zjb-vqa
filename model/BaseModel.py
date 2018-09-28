@@ -30,39 +30,42 @@ class BaseModel():
         self.exp_name = ''
 
     def train(self, batch_size, epoch):
+        model = self.build()
         time_now = int(time.time())
         time_local = time.localtime(time_now)
         dt = time.strftime("%Y-%m-%d_%H-%M-%S", time_local)
-        self.exp_name = 'experiments/{}/{}'.format(self.model_name, dt)
+        self.exp_name = 'experiments/{}/{}/'.format(self.model_name, dt)
         ename = self.exp_name
         data = self.dataset
         if not os.path.exists(ename):
             os.makedirs(ename)
-        trained = self.model.fit_generator(data.generator('train', batch_size), data.get_nb_steps('train', batch_size),
-                                           epoch,
-                                           validation_data=data.generator('val', batch_size),
-                                           validation_steps=data.get_nb_steps('val', batch_size),
-                                           # validation_data = dum_val,
-                                           callbacks=[  # EarlyStopping(patience=5),
+        trained = model.fit_generator(data.generator('train', batch_size), data.get_nb_steps('train', batch_size),
+                                      epoch,
+                                      validation_data=data.generator('val', batch_size),
+                                      validation_steps=data.get_nb_steps('val', batch_size),
+                                      # validation_data = dum_val,
+                                      callbacks=[  # EarlyStopping(patience=5),
                                                ModelCheckpoint(
-                                                   ename + '/E{epoch:02d}-L{val_loss:.2f}-{val_multians_accuracy:.2f}.pkl',
+                                                   ename + 'E{epoch:02d}-L{val_loss:.2f}-{val_multians_accuracy:.2f}.pkl',
                                                    monitor='val_multians_accuracy',
                                                    save_best_only=False,
                                                    period=5)])
-        p.dump(trained.history, open(ename + '/history.pkl', 'wb'))
-        self.model.save_weights(ename + '/latest.pkl')
-        p.dump(self, open(ename + '/ModelInstance.pkl', 'wb'))
+        p.dump(trained.history, open(ename + 'history.pkl', 'wb'))
+        model.save_weights(ename + 'latest.pkl')
+        # p.dump(self, open(ename + 'ModelInstance.pkl', 'wb'))
 
-    def test(self, batch_size, pkl_name='latest'):
-        self.model.load_weights(self.exp_name + pkl_name)
-        vid, questions, _ = self.dataset.preprocess_text('test')
-        total_steps = len(questions) // self.batch_size + 1
-        prediction = self.model.predict_generator(self.dataset.generator(batch_size, 'test'), steps=total_steps,
+    def test(self, batch_size, exp_name, pkl_name='latest.pkl'):
+        model = self.build()
+        model.load_weights(exp_name + pkl_name)
+        data = self.dataset
+        vid, questions, _ = data.preprocess_text('test')
+        prediction = model.predict_generator(data.generator('test', batch_size),
+                                             steps=data.get_nb_steps('test', batch_size),
                                                   verbose=1)
         prediction = np.argmax(prediction, axis=1)
         # get statistics of counter
         print(Counter(prediction))
-        with open('submit.txt', 'w') as f:
+        with open(exp_name + pkl_name.split('.')[0] + '_submit.txt', 'w') as f:
             for idx, v_id in enumerate(vid):
                 s = [v_id]
                 for jdx, question in enumerate(questions[idx * 5:idx * 5 + 5]):

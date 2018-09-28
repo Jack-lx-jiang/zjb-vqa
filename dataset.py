@@ -108,7 +108,6 @@ class Dataset():
         # get outputs shape
         output_shape = [np.load(self.feature_dir + '/' + vid[0] + '_' + f + '_resnet.npy').shape[1:] for f in
                         self.feature]
-        print(output_shape)
 
         bs = batch_size
         while True:
