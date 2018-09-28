@@ -46,7 +46,8 @@ class BaseModel():
                                       # validation_data = dum_val,
                                       callbacks=[  # EarlyStopping(patience=5),
                                           ModelCheckpoint(
-                                              ename + 'E{epoch:02d}-L{val_loss:.2f}-{val_multians_accuracy:.2f}.pkl',
+                                              ename + 'E{epoch:02d}-L{val_loss:.2f}-A{val_multians_accuracy:.2f}.pkl',
+                                              save_weights_only=True,
                                               monitor='val_multians_accuracy',
                                               save_best_only=False,
                                               period=5)])

@@ -6,19 +6,6 @@ from keras.models import Model
 from keras.optimizers import Adadelta
 
 from dataset import Dataset
-from util.loss import focal_loss
-from util.metrics import multians_accuracy
-from util.utils import load_embedding_weight
-
-from model.BaseModel import BaseModel
-from keras.layers import Masking, GRU, Input, \
-    Dropout
-from keras.layers.core import Dense
-from keras.layers.embeddings import Embedding
-from keras.models import Model
-from keras.optimizers import Adadelta
-
-from dataset import Dataset
 from model.BaseModel import BaseModel
 from util.loss import focal_loss
 from util.metrics import multians_accuracy
@@ -55,5 +42,6 @@ class ED_model(BaseModel):
         decoder = GRU(512)(Masking()(video_dropout), initial_state=[question_encoding])
         logit = Dense(self.dataset.answer_size, activation='sigmoid')(decoder)
         model = Model(inputs=[video, question], outputs=logit)
+        model.summary()
         model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
         return model
