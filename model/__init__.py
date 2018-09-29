@@ -1,1 +1,2 @@
-from model.model import ED_model, ShallowFeatureModel
+from model.EncodeDecodeModel import EncodeDecodeModel
+from model.ShallowFeatureModel import ShallowFeatureModel
