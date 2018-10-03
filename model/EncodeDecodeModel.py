@@ -1,8 +1,9 @@
-from keras.layers import Masking, GRU, Input, Dropout
+from keras.layers import Masking, GRU, Input, Dropout, Reshape
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
 from keras.optimizers import Adadelta
+from keras.utils import multi_gpu_model
 
 from dataset import Dataset
 from model.BaseModel import BaseModel
@@ -23,11 +24,13 @@ class EncodeDecodeModel(BaseModel):
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.feature_dir = self.generate_feature_dir_name()
+        # self.feature_dir = self.generate_feature_dir_name()
+        self.feature_dir = 'dataset2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
         BaseModel.__init__(self)
 
     def build(self):
-        video = Input((self.max_video_len, 2048))
+        video = Input((self.max_video_len, 1, 1, 2048))
+        video_reshape = Reshape((self.max_video_len, 2048))(video)
 
         question = Input((self.max_question_len,), dtype='int32')
 
@@ -37,10 +40,11 @@ class EncodeDecodeModel(BaseModel):
                                     input_length=self.dataset.max_question_len, mask_zero=True,
                                     weights=[embedding_matrix], trainable=False)(question)
         question_encoding = GRU(512)(Masking()(embedding_layer))
-        video_dropout = Dropout(0.5)(video)
+        video_dropout = Dropout(0.5)(video_reshape)
         decoder = GRU(512)(Masking()(video_dropout), initial_state=[question_encoding])
         logit = Dense(self.dataset.answer_size, activation='sigmoid')(decoder)
         model = Model(inputs=[video, question], outputs=logit)
         model.summary()
-        model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
+        model = multi_gpu_model(model)
+        model.compile(optimizer=Adadelta(10), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
         return model

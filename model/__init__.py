@@ -1,2 +1,3 @@
 from model.EncodeDecodeModel import EncodeDecodeModel
+from model.FeatureConvModel import FeatureConvModel
 from model.ShallowFeatureModel import ShallowFeatureModel
