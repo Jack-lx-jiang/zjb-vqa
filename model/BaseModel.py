@@ -14,7 +14,16 @@ from keras.models import Model
 from skimage import transform
 
 
-class BaseModel():
+class BaseModel:
+    minimum_appear = None
+    max_video_len = None
+    max_question_len = None
+    train_threshold = None
+    interval = None
+    features = None
+    model_name = None
+    dataset = None
+
     def __init__(self):
         reg = re.compile(r"(?<=inter)\d+")
         # print(self.feature_dir)
