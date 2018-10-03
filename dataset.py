@@ -23,6 +23,7 @@ class Dataset():
         self.max_video_len = max_video_len
         self.train_threshold = train_threshold
         self.interval = interval
+        print('extract interval:' + str(interval))
         self.feature_dir = feature_dir
         self.feature = feature
 
@@ -115,6 +116,7 @@ class Dataset():
                 random.shuffle(inds)
             count = 0
             while count < len(inds):
+                # start = time()
                 X_videos = [np.zeros((bs, self.max_video_len,) + os) for os in output_shape]
                 X_question = np.zeros((bs, self.max_question_len), dtype=np.int32)
                 Y = np.zeros((bs, self.answer_size), dtype=np.int32)
@@ -146,3 +148,5 @@ class Dataset():
                 except Exception as e:
                     print(str(e))
                 count += j
+                # stop = time()
+                # print('   '+str(stop-start) + "s")
