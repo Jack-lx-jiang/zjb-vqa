@@ -110,18 +110,21 @@ class BaseModel:
                     except (imageio.core.CannotReadFrameError, IndexError):
                         break
                     else:
-                        frame = transform.resize(frame, (224, 224))
+                        frame = transform.resize(frame, (224, 224), preserve_range=True)
                         batch[t] = frame
                         frame_count += 1
 
                     frame_ind += self.interval
                 batch = preprocess_input(batch)
                 vid_descriptors = pre_model.predict_on_batch(batch)
+                if len(feature_files) == 1:
+                    vid_descriptors = [vid_descriptors]
                 video.close()
                 if not os.path.exists(self.feature_dir):
                     os.mkdir(self.feature_dir)
                 try:
-                    for ff, vid_des in zip(feature_files, vid_descriptors):
+                    zipped = zip(feature_files, vid_descriptors)
+                    for ff, vid_des in zipped:
                         np.save(ff, vid_des[:frame_count])
                 except Exception as e:
                     print(e)
