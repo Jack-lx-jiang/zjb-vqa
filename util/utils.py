@@ -22,7 +22,7 @@ def load(filename):
 
 
 def make_embedding_weight(tokenizer):
-    GLOVE_DIR = "C:\\Users\\KatioHH\\Desktop"
+    GLOVE_DIR = '/Users/KaitoHH/Downloads'
     embeddings_index = {}
     f = open(os.path.join(GLOVE_DIR, 'glove.42B.300d.txt'), encoding='utf-8')
     with tqdm(total=1917494) as pbar:
