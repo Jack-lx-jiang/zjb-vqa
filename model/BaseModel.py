@@ -115,9 +115,16 @@ class BaseModel:
                         frame_count += 1
 
                     frame_ind += self.interval
+                # print(np.amax(batch[0]))
+                # print(np.amin(batch[0]))
                 batch = preprocess_input(batch)
+                # print('after preprocess')
+                # print(np.amax(batch[0]))
+                # print(np.amin(batch[0]))
                 vid_descriptors = pre_model.predict_on_batch(batch)
                 if len(feature_files) == 1:
+                    # print(np.amax(vid_descriptors))
+                    # print(np.amin(vid_descriptors))
                     vid_descriptors = [vid_descriptors]
                 video.close()
                 if not os.path.exists(self.feature_dir):
