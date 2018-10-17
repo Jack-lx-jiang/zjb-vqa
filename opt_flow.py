@@ -22,7 +22,7 @@ def generate_opt_flow(video_dir, output_dir, threads):
 
     thread_list = []
     for i in range(threads):
-        t = threading.Thread(target=batch_opt_flow, args=(chunks[i], video_dir, i + 1, tot_bar))
+        t = threading.Thread(target=batch_opt_flow, args=(chunks[i], video_dir, output_dir, i + 1, tot_bar))
         t.start()
         thread_list.append(t)
 
