@@ -24,8 +24,8 @@ class EncodeDecodeModel(BaseModel):
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        # self.feature_dir = self.generate_feature_dir_name()
-        self.feature_dir = 'dataset_round2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
+        self.feature_dir = self.generate_feature_dir_name()
+        # self.feature_dir = 'dataset_round2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
         BaseModel.__init__(self)
 
     def build(self):
@@ -40,14 +40,18 @@ class EncodeDecodeModel(BaseModel):
                                     input_length=self.dataset.max_question_len, mask_zero=True,
                                     weights=[embedding_matrix], trainable=False)(question)
         question_encoding = GRU(512)(Masking()(embedding_layer))
+        ans_mask = Dense(self.dataset.answer_size, activation='sigmoid')(question_encoding)
         video_dropout = Dropout(0.5)(video_reshape)
         decoder = GRU(512)(Masking()(video_dropout), initial_state=[question_encoding])
         logit = Dense(self.dataset.answer_size, activation='sigmoid')(decoder)
         model = Model(inputs=[video, question], outputs=logit)
+        # model = Model(inputs=[video, question], outputs=ans_mask)
         model.summary()
         try:
             model = multi_gpu_model(model)
         except ValueError:
             pass
+        # model.compile(optimizer=Adadelta(), loss=binary_crossentropy, metrics=[multians_accuracy])
         model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
+        # model.compile(optimizer=Adadelta(), loss=[focal_loss_mean(alpha=.25, gamma=2)], metrics=[multians_accuracy])
         return model
