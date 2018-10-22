@@ -1,7 +1,9 @@
-import cv2
-import numpy as np
 import os
 from os.path import basename, splitext
+
+import cv2
+import numpy as np
+from skimage import transform
 from tqdm import tqdm
 
 
@@ -22,8 +24,8 @@ def opt_flow(file, output_dir, every=1, limit=0, position=0, tot_bar=None):
         hsv[..., 1] = 255
         rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
-        flow_array = np.zeros((total, *rgb.shape), dtype='uint8')
-        flow_array[0] = rgb
+        flow_array = np.zeros((total, 224, 224, 3), dtype='uint8')
+        flow_array[0] = transform.resize(rgb, (224, 224), preserve_range=True)
 
         with tqdm(total=total, position=position, initial=1) as pbar:
             pbar.set_description(video_name)
@@ -44,7 +46,7 @@ def opt_flow(file, output_dir, every=1, limit=0, position=0, tot_bar=None):
                 hsv[..., 0] = ang * 180 / np.pi / 2
                 hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
                 rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-                flow_array[pbar.n] = rgb
+                flow_array[pbar.n] = transform.resize(rgb, (224, 224), preserve_range=True)
                 # comment below code to test performance in slient mode
                 # if not pbar.n % 15:
                 #     cv2.imshow('frame2', rgb)
