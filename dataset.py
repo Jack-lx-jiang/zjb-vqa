@@ -111,6 +111,9 @@ class Dataset():
                         self.feature]
 
         bs = batch_size
+
+        # means = [np.load(self.feature_dir+'/'+f+'_mean.npy')[np.newaxis,:] for f in self.feature]
+        # stds = [np.load(self.feature_dir+'/'+f+'_std.npy')[np.newaxis, :] for f in self.feature]
         while True:
             if phase == 'train':
                 random.shuffle(inds)
@@ -129,6 +132,8 @@ class Dataset():
                             # load feature maps of current question's video. shape: (video_len, feature_map_size)
                             cur_video = np.load(
                                 self.feature_dir + '/' + vid[cur_question // 5] + '_' + f + '_resnet.npy')
+                            # cur_video -= means[fi]
+                            # cur_video /= stds[fi]
                             # extract cur_video[:min{cur_video.shape[0],max_video_len}]
                             cur_video_len = math.ceil(cur_video.shape[0] / self.interval)
                             X_videos[fi][i, :cur_video_len] = cur_video[

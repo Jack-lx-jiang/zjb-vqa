@@ -1,13 +1,14 @@
-import cv2
-import numpy as np
 import os
 from os.path import basename, splitext
+
+import cv2
+import numpy as np
 from tqdm import tqdm
 
 
 def opt_flow(file, output_dir, position=0, tot_bar=None):
     video_name = splitext(basename(file))[0]
-    output_name = os.path.join(output_dir, video_name) + '_opt.npy'
+    output_name = os.path.join(output_dir, video_name) + '_opt.npz'
 
     if not os.path.exists(output_name):
         cap = cv2.VideoCapture(file)
@@ -53,7 +54,7 @@ def opt_flow(file, output_dir, position=0, tot_bar=None):
                 prvs = next
                 pbar.update(1)
         cap.release()
-        np.save(output_name, flow_array)
+        np.savez_compressed(output_name, flow_array)
     
     if tot_bar:
         tot_bar.update(1)  # this may have critical section problem?

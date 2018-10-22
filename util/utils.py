@@ -54,3 +54,38 @@ def load_embedding_weight(tokenizer):
         else:
             print(word)
     return embedding_matrix
+
+
+def calculate_mean_std(feature_dir, feature):
+    feates = os.listdir(feature_dir)
+    count = 0
+    feature_sum = None
+    for f in feates:
+        if feature in f:
+            cur_feat = np.load(feature_dir + '/' + f)
+            feature_sum = np.zeros(cur_feat.shape[1:])
+            break
+
+    for f in feates:
+        if feature in f:
+            cur_feat = np.load(feature_dir + '/' + f)
+            feature_sum += cur_feat.sum(0)
+            count += cur_feat.shape[0]
+    mean = feature_sum / count
+
+    print(count)
+    print(feature_sum.shape)
+    var = np.zeros_like(mean)
+    mean_reshape = mean.reshape((1,) + mean.shape)
+    for f in feates:
+        if feature in f:
+            cur_feat = np.load(feature_dir + '/' + f)
+            var += np.sum((cur_feat - mean_reshape) ** 2, axis=0)
+
+    var = var / count
+
+    std = var ** 0.5
+
+    np.save(feature_dir + '/' + feature + '_mean.npy', mean)
+    np.save(feature_dir + '/' + feature + '_std.npy', std)
+    return mean, std

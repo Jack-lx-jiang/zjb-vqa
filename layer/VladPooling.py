@@ -61,12 +61,16 @@ class VladPooling(Layer):
         for k in range(self.num_centers):
             cur_residuals = x - self.centers[k, :]
             cur_asgn_residuals = K.expand_dims(assgn[:, :, :, :, k]) * cur_residuals
-            cur_sum_residuals = K.sum(cur_asgn_residuals, axis=[1, 2, 3])
+            # cur_sum_residuals = K.sum(cur_asgn_residuals, axis=[1, 2, 3])
+            cur_sum_residuals = K.mean(cur_asgn_residuals, axis=[1, 2, 3])
             clusters.append(cur_sum_residuals)
         k_clusters = K.stack(clusters, axis=1)
-        intra_normed = K.l2_normalize(k_clusters, axis=2)
-        final_normed = K.l2_normalize(K.reshape(intra_normed, (K.shape(intra_normed)[0], -1)), axis=0)
-        return final_normed
+
+        return K.reshape(k_clusters, (K.shape(k_clusters)[0], -1))
+        # intra_normed = K.l2_normalize(k_clusters, axis=2)
+        # return K.reshape(intra_normed, (K.shape(intra_normed)[0], -1))
+        # final_normed = K.l2_normalize(K.reshape(intra_normed, (K.shape(intra_normed)[0], -1)), axis=1)
+        # return final_normed
 
     def compute_mask(self, inputs, mask=None):
         return None

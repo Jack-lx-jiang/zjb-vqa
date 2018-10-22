@@ -3,7 +3,7 @@ import os
 from keras import backend as K
 from keras import regularizers
 from keras.layers import Masking, GRU, Input, Reshape, MaxPool1D, multiply, Bidirectional, Lambda, TimeDistributed, \
-    Softmax, Flatten, Concatenate, Dropout, BatchNormalization, Activation
+    Softmax, Flatten, Concatenate, Dropout, BatchNormalization, Activation, LSTM
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model
@@ -275,7 +275,7 @@ class VladModel2(BaseModel):
     max_question_len = 20
     train_threshold = 0.95
     interval = 15
-    nb_centers = 64
+    nb_centers = 32
     features = ['activation_49']
     model_name = 'VladModel2'
     dataset = Dataset()
@@ -317,10 +317,11 @@ class VladModel2(BaseModel):
         sub_feature = multiply([sub_feature, visual_attention])
         ans_p = Dense(self.dataset.answer_size, kernel_regularizer=regularizers.l2(0.01))(sub_feature)
 
-        ans_mask = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.01))(
-            question_encoding2)
+        # ans_mask = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.01))(
+        #     question_encoding2)
         #
-        logit = Activation('sigmoid')(multiply([ans_p, ans_mask]))
+        # logit = Activation('sigmoid')(multiply([ans_p, ans_mask]))
+        logit = Activation('sigmoid')(ans_p)
 
         # logit = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.01))(Concatenate()([sub_feature, question_encoding2]))
 
@@ -328,4 +329,153 @@ class VladModel2(BaseModel):
         model.summary()
         model = multi_gpu_model(model)
         model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
+        return model
+
+
+class VladModel3(BaseModel):
+    minimum_appear = 3
+    max_video_len = 100
+    max_question_len = 20
+    train_threshold = 0.95
+    interval = 15
+    nb_centers = 64
+    # features = ['avg_pool']
+    features = ['avg_pool']
+    model_name = 'VladModel3'
+    dataset = Dataset()
+
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
+        self.feature_dir = self.generate_feature_dir_name()
+        # self.feature_dir = 'dataset2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
+        self.kmeans_dir = self.feature_dir + '/kmeans_' + str(self.nb_centers) + '_' + self.features[0] + '.npy'
+        BaseModel.__init__(self)
+        if not os.path.exists(self.kmeans_dir):
+            calculate_cluster_centers(self.feature_dir, self.features[0], self.nb_centers, 100, self.kmeans_dir)
+
+    def build(self):
+        video = Input((self.max_video_len, 1, 1, 2048))
+        # video_reshape = Reshape((self.max_video_len, 2048))(video)
+        question = Input((self.max_question_len,), dtype='int32')
+        embedding_matrix = load_embedding_weight(self.dataset.tokenizer)
+        embedding_size = 300
+        embedding_layer = Embedding(self.dataset.vocabulary_size, embedding_size, input_length=self.max_question_len,
+                                    mask_zero=True, weights=[embedding_matrix], trainable=False)(question)
+        # embd = K.variable(embedding_matrix)
+        # mean = K.mean(embd, axis=0)
+        # std = K.std(embd, axis=0)
+        # embedding_layer = Lambda(lambda x: (x - mean) / std)(embedding_layer)
+
+        question_encoding = Bidirectional(GRU(512, return_sequences=True))(Masking()(embedding_layer))
+        question_encoding2 = Bidirectional(GRU(512))(question_encoding)
+
+        visual_attention = Dense(self.nb_centers * 128, activation='tanh', kernel_regularizer=regularizers.l2(0.01))(
+            question_encoding2)
+        #
+        # visual_attention = Dense(1024, activation='tanh', kernel_regularizer=regularizers.l2(0.01))(
+        #     question_encoding2)
+        # pooled_feature = VladPooling(self.kmeans_dir, regularizer=regularizers.l2(0.000000000000004))(
+        #     Masking()(video))
+        pooled_feature = VladPooling(self.kmeans_dir)(Masking()(video))
+
+        pooled_feature = Dropout(0.8)(pooled_feature)
+
+        pooled_feature = Reshape((self.nb_centers, 2048))(pooled_feature)
+        pooled_bn = BatchNormalization()(pooled_feature)
+        unstacked = Lambda(lambda x: K.tf.unstack(x, axis=1))(pooled_bn)
+        sub_feature = [Dense(128)(x) for x in unstacked]
+        sub_feature = Lambda(lambda x: K.concatenate(x))(sub_feature)
+        # sub_feature = Dense(1024, kernel_regularizer=regularizers.l2(0.01))(pooled_bn)
+        sub_feature = multiply([sub_feature, visual_attention])
+        ans_p = Dense(self.dataset.answer_size, kernel_regularizer=regularizers.l2(0.01))(sub_feature)
+
+        # ans_mask = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.01))(
+        #     question_encoding2)
+
+        # logit = Activation('sigmoid')(multiply([ans_p, ans_mask]))
+        logit = Activation('sigmoid')(ans_p)
+
+        # logit = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.01))(Concatenate()([sub_feature, question_encoding2]))
+
+        model = Model(inputs=[video, question], outputs=logit)
+        model.summary()
+        # model = multi_gpu_model(model)
+        model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
+        return model
+
+
+class VladModel4(BaseModel):
+    minimum_appear = 3
+    max_video_len = 100
+    max_question_len = 20
+    train_threshold = 0.95
+    interval = 15
+    nb_centers = 64
+    features = ['avg_pool']
+    model_name = 'VladModel4'
+    dataset = Dataset()
+
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
+        self.feature_dir = self.generate_feature_dir_name()
+        # self.feature_dir = 'dataset2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
+        self.kmeans_dir = self.feature_dir + '/kmeans_' + str(self.nb_centers) + '_' + self.features[0] + '.npy'
+        BaseModel.__init__(self)
+        if not os.path.exists(self.kmeans_dir):
+            calculate_cluster_centers(self.feature_dir, self.features[0], self.nb_centers, 100, self.kmeans_dir)
+
+    def build(self):
+        video = Input((self.max_video_len, 1, 1, 2048))
+        # video_reshape = Reshape((self.max_video_len, 2048))(video)
+        question = Input((self.max_question_len,), dtype='int32')
+        embedding_matrix = load_embedding_weight(self.dataset.tokenizer)
+        embedding_size = 300
+        embedding_layer = Embedding(self.dataset.vocabulary_size, embedding_size, input_length=self.max_question_len,
+                                    mask_zero=True, weights=[embedding_matrix], trainable=False)(question)
+
+        # embd = K.variable(embedding_matrix)
+        # mean = K.mean(embd,axis=0)
+        # std = K.std(embd, axis=0)
+        # embedding_layer = Lambda(lambda x:(x-mean)/std)(embedding_layer)
+        question_encoding = Bidirectional(LSTM(512, return_sequences=True))(Masking()(embedding_layer))
+        question_encoding2 = LSTM(1024)(question_encoding)
+
+        # visual_attention = Dense(1024)(question_encoding2)
+        visual_attention = Dense(1024, kernel_regularizer=regularizers.l2(0.001))(question_encoding2)
+        # visual_attention = Dropout(0.5)(visual_attention)
+
+        video_mask = Masking()(video)
+        video_mask = Activation('relu')(video_mask)
+        pooled_feature = VladPooling(self.kmeans_dir)(video_mask)
+
+        pooled_feature = Dropout(0.8)(pooled_feature)
+
+        pooled_feature = Reshape((self.nb_centers, 2048))(pooled_feature)
+        pooled_bn = BatchNormalization()(pooled_feature)
+        # video_part = Dense(1024)(pooled_bn)
+        video_part = Dense(1024, kernel_regularizer=regularizers.l2(0.001))(pooled_bn)
+        # video_part = BatchNormalization()(video_part)
+        # video_part = Dropout(0.5)(video_part)
+
+        # attention_score = Dense(1)(multiply([visual_attention, video_part]))
+        attention_score = Dense(2, kernel_regularizer=regularizers.l2(0.001))(multiply([visual_attention, video_part]))
+        # attention_score = Dense(2, kernel_regularizer=regularizers.l2(0.001))(Activation('tanh')(multiply([visual_attention, video_part])))
+        # attention_score = Dropout(0.5)(attention_score)
+        attention = Softmax(axis=-2)(attention_score)
+        attention = Lambda(lambda x: K.expand_dims(x, -1))(attention)
+        video_reshape = Lambda(lambda x: K.expand_dims(x, -2))(pooled_bn)
+        # video_joint = Lambda(lambda x: K.sum(x, axis=-2), name='video_joint')(multiply([pooled_bn, attention]))
+        video_joint = Lambda(lambda x: K.sum(x, axis=-3), name='video_joint')(multiply([video_reshape, attention]))
+        video_joint = Flatten()(video_joint)
+
+        # video_joint = Dropout(0.5)(video_joint)
+
+        # logit = Dense(self.dataset.answer_size, activation='sigmoid')(video_joint)
+        logit = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.001))(
+            video_joint)
+        #
+        model = Model(inputs=[video, question], outputs=logit)
+        model.summary()
+        # model = multi_gpu_model(model)
+        model.compile(optimizer=Adadelta(0.1), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
         return model
