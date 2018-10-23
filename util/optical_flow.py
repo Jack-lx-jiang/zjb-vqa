@@ -7,9 +7,15 @@ from skimage import transform
 from tqdm import tqdm
 
 
-def opt_flow(file, output_dir, every=1, limit=0, position=0, tot_bar=None):
+def opt_flow(file, output_dir, every=1, limit=0, compressed=False, position=0, tot_bar=None):
     video_name = splitext(basename(file))[0]
-    output_name = os.path.join(output_dir, video_name) + '_opt.npz'
+    output_name = os.path.join(output_dir, video_name) + '_opt'
+    if compressed:
+        output_name += '.npz'
+        save = np.savez_compressed
+    else:
+        output_name += '.npy'
+        save = np.save
 
     if not os.path.exists(output_name):
         cap = cv2.VideoCapture(file)
@@ -61,18 +67,18 @@ def opt_flow(file, output_dir, every=1, limit=0, position=0, tot_bar=None):
                 prvs = next
                 pbar.update(1)
         cap.release()
-        np.savez_compressed(output_name, flow_array)
+        save(output_name, flow_array)
 
     if tot_bar:
         tot_bar.update(1)  # this may have critical section problem?
 
 
-def batch_opt_flow(file_list, video_dir, output_dir, every=1, limit=0, position=0, tot_bar=None):
+def batch_opt_flow(file_list, video_dir, output_dir, every=1, limit=0, compressed=False, position=0, tot_bar=None):
     for file in file_list:
         filename = os.path.join(video_dir, file)
-        opt_flow(filename, output_dir, every, limit, position, tot_bar)
+        opt_flow(filename, output_dir, every, limit, compressed, position, tot_bar)
 
 
 if __name__ == '__main__':
-    opt_flow('/Users/KaitoHH/Downloads/VQADatasetA_20180815/train/ZJL3554.mp4',
+    opt_flow('D:\\VQADatasetA_20180815\\train\\ZJL3554.mp4',
              output_dir='.', every=8, limit=12)
