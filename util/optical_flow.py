@@ -1,13 +1,21 @@
-import cv2
-import numpy as np
 import os
 from os.path import basename, splitext
+
+import cv2
+import numpy as np
+from skimage import transform
 from tqdm import tqdm
 
 
-def opt_flow(file, output_dir, every=1, limit=0, position=0, tot_bar=None):
+def opt_flow(file, output_dir, every=1, limit=0, compressed=False, position=0, tot_bar=None):
     video_name = splitext(basename(file))[0]
-    output_name = os.path.join(output_dir, video_name) + '_opt.npz'
+    output_name = os.path.join(output_dir, video_name) + '_opt'
+    if compressed:
+        output_name += '.npz'
+        save = np.savez_compressed
+    else:
+        output_name += '.npy'
+        save = np.save
 
     if not os.path.exists(output_name):
         cap = cv2.VideoCapture(file)
@@ -22,8 +30,8 @@ def opt_flow(file, output_dir, every=1, limit=0, position=0, tot_bar=None):
         hsv[..., 1] = 255
         rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
-        flow_array = np.zeros((total, *rgb.shape), dtype='uint8')
-        flow_array[0] = rgb
+        flow_array = np.zeros((total, 224, 224, 3), dtype='uint8')
+        flow_array[0] = transform.resize(rgb, (224, 224), preserve_range=True)
 
         with tqdm(total=total, position=position, initial=1) as pbar:
             pbar.set_description(video_name)
@@ -44,7 +52,7 @@ def opt_flow(file, output_dir, every=1, limit=0, position=0, tot_bar=None):
                 hsv[..., 0] = ang * 180 / np.pi / 2
                 hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
                 rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-                flow_array[pbar.n] = rgb
+                flow_array[pbar.n] = transform.resize(rgb, (224, 224), preserve_range=True)
                 # comment below code to test performance in slient mode
                 # if not pbar.n % 15:
                 #     cv2.imshow('frame2', rgb)
@@ -59,18 +67,18 @@ def opt_flow(file, output_dir, every=1, limit=0, position=0, tot_bar=None):
                 prvs = next
                 pbar.update(1)
         cap.release()
-        np.savez_compressed(output_name, flow_array)
+        save(output_name, flow_array)
 
     if tot_bar:
         tot_bar.update(1)  # this may have critical section problem?
 
 
-def batch_opt_flow(file_list, video_dir, output_dir, every=1, limit=0, position=0, tot_bar=None):
+def batch_opt_flow(file_list, video_dir, output_dir, every=1, limit=0, compressed=False, position=0, tot_bar=None):
     for file in file_list:
         filename = os.path.join(video_dir, file)
-        opt_flow(filename, output_dir, every, limit, position, tot_bar)
+        opt_flow(filename, output_dir, every, limit, compressed, position, tot_bar)
 
 
 if __name__ == '__main__':
-    opt_flow('/Users/KaitoHH/Downloads/VQADatasetA_20180815/train/ZJL3554.mp4',
+    opt_flow('D:\\VQADatasetA_20180815\\train\\ZJL3554.mp4',
              output_dir='.', every=8, limit=12)

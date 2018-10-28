@@ -11,6 +11,7 @@ from keras.applications.resnet50 import ResNet50
 from keras.applications.resnet50 import preprocess_input
 from keras.callbacks import ModelCheckpoint
 from keras.models import Model
+from keras.utils import plot_model
 from skimage import transform
 
 
@@ -40,6 +41,12 @@ class BaseModel:
 
     def train(self, batch_size, epoch):
         model = self.build()
+        try:
+            visualize_file = 'model/' + self.__class__.__name__ + '.png'
+            plot_model(model, to_file=visualize_file, show_shapes=True)
+            print('model visualization saved to', visualize_file, file=sys.stderr)
+        except Exception:
+            print('pydot or graphviz is not installed, install these packages to visualize model.')
         time_now = int(time.time())
         time_local = time.localtime(time_now)
         dt = time.strftime("%Y-%m-%d_%H-%M-%S", time_local)
