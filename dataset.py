@@ -5,6 +5,7 @@ from collections import Counter
 import numpy as np
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
+from numpy.random import choice
 
 from mapping import AnswerMapping
 
@@ -17,7 +18,7 @@ class Dataset():
         pass
 
     def set_config(self, base_dir=None, minimum_appear=3, max_video_len=100, max_question_len=20, train_threshold=0.95,
-                   interval=1, feature_dir='dataset/feature', feature=['avg_pool']):
+                   interval=1, feature_dir='dataset/feature', feature=['avg_pool'], sample_frames=False):
         self.configured = True
         self.base_dir = base_dir or 'dataset'
         self.max_video_len = max_video_len
@@ -30,15 +31,40 @@ class Dataset():
         self.dict = AnswerMapping()
         vid, questions, answers = self.preprocess_text('train')
 
-        rare_set = set([ans for ans, a_num in Counter(answers).items() if a_num <= minimum_appear])
+        # generate reverse answers vector
+        ca = Counter(answers)
+
+        rare_set = set([ans for ans, a_num in ca.items() if a_num <= minimum_appear])
         answers = [a for a in answers if a not in rare_set]
+        # total_ans = sum(ca[a] for a in answers)
+        # for a in answers:
+        #     print(a,  ca[a])
+        # print(total_ans)
+        # print(sum(ca.values()))
         ans = self.dict.tokenize(answers, True)
+
         self.answer_size = max(ans) + 1
+
+        total_ans = sum(ca[self.dict.idx2ans[i]] for i in range(self.answer_size))
+        # print(total_ans)
+
+        self.ans_entropy = np.asarray(
+            [-math.e * math.log(ca[self.dict.idx2ans[i]] / total_ans) * ca[self.dict.idx2ans[i]] / total_ans for i in
+             range(self.answer_size)])
+        self.total_entropy = sum(self.ans_entropy)
+        # print(self.total_entropy)
+        self.ans_p = self.ans_entropy / self.total_entropy
+        self.reverse_ans = np.asarray([1 / ca[self.dict.idx2ans[i]] for i in range(self.answer_size)])
+        # self.reverse_ans = np.asarray([1/math.log(ca[self.dict.idx2ans[i]]) for i in range(self.answer_size)])
+        # print(self.reverse_ans)
+
         self.tokenizer = Tokenizer()
         self.tokenizer.fit_on_texts(questions)
 
         self.vocabulary_size = len(self.tokenizer.word_index) + 1
         self.max_question_len = max_question_len
+
+        self.sample_frames = sample_frames
         print('finish dataset configuration')
 
     def get_nb_steps(self, phase, batch_size):
@@ -138,6 +164,9 @@ class Dataset():
                             cur_video_len = math.ceil(cur_video.shape[0] / self.interval)
                             X_videos[fi][i, :cur_video_len] = cur_video[
                                                               :self.max_video_len * self.interval:self.interval]
+                            if self.sample_frames and cur_video_len < self.max_video_len:
+                                sample_indx = sorted(choice(range(cur_video_len), self.max_video_len))
+                                X_videos[fi][i, :] = X_videos[fi][i, sample_indx]
                         q = questions[cur_question]
                         X_question[i, :len(q)] = q
                         if phase != 'test':

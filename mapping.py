@@ -19,6 +19,12 @@ class AnswerMapping(object):
                 tokens.append(self.ans2idx[a] if a in self.ans2idx else -1)
         return tokens
 
+    def retokenize(self, idx):
+        ans = []
+        for i in idx:
+            ans.append(self.idx2ans[i])
+        return ans
+
     def dump_to_file(self, path):
         with open(path, 'wb') as f:
             pickle.dump([self.ans2idx, self.idx2ans], f)

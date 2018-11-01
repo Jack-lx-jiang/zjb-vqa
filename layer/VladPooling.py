@@ -4,6 +4,10 @@ from keras import initializers
 from keras.engine.topology import Layer
 
 
+# It a keras implementation of Action Vlad
+# Too memory consuming and harder to converge than shallowFeatureModel....
+# So it has not been tested on shallow feature
+
 class VladPooling(Layer):
 
     def __init__(self, kmenas_init, alpha=1000, trainable=True, regularizer=None, **kwargs):
@@ -44,12 +48,6 @@ class VladPooling(Layer):
         self.set_weights(
             [centers, centers.transpose()[np.newaxis, np.newaxis, np.newaxis, ...] * 2 * self.alpha, -self.alpha *
              np.sum(np.square(centers), axis=1)])
-        #
-        # self.centers = K.variable(centers, name='centers')
-        # self.kernel = K.variable(centers.transpose()[np.newaxis, np.newaxis, np.newaxis, ...] * 2 * self.alpha,
-        #                          name='kernel')
-        # self.bias = K.variable(-self.alpha * np.sum(np.square(centers), axis=1), name='bias')
-        # self.trainable_weights = [self.centers, self.kernel, self.bias]
 
         super(VladPooling, self).build(input_shape)  # Be sure to call this at the end
 

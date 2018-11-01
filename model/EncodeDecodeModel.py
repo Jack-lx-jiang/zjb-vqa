@@ -7,7 +7,7 @@ from keras.utils import multi_gpu_model
 
 from dataset import Dataset
 from model.BaseModel import BaseModel
-from util.loss import focal_loss
+from util.loss import focal_loss_with_entropy
 from util.metrics import multians_accuracy
 from util.utils import load_embedding_weight
 
@@ -24,8 +24,8 @@ class EncodeDecodeModel(BaseModel):
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.feature_dir = self.generate_feature_dir_name()
-        # self.feature_dir = 'dataset_round2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
+        # self.feature_dir = self.generate_feature_dir_name()
+        self.feature_dir = 'dataset_round2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
         BaseModel.__init__(self)
 
     def build(self):
@@ -52,6 +52,9 @@ class EncodeDecodeModel(BaseModel):
         except ValueError:
             pass
         # model.compile(optimizer=Adadelta(), loss=binary_crossentropy, metrics=[multians_accuracy])
-        model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
+        # model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
+        model.compile(optimizer=Adadelta(),
+                      loss=[focal_loss_with_entropy(alpha=.25, gamma=2, ans_entropy=self.dataset.ans_entropy)],
+                      metrics=[multians_accuracy])
         # model.compile(optimizer=Adadelta(), loss=[focal_loss_mean(alpha=.25, gamma=2)], metrics=[multians_accuracy])
         return model

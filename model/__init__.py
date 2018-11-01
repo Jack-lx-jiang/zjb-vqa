@@ -1,6 +1,6 @@
+from model.AssembleModel import AssembleModel
 from model.EncodeDecodeModel import EncodeDecodeModel
 from model.FeatureConvModel import FeatureConvModel
-from model.ShallowFeatureModel import ShallowFeatureModel
-from model.SimpleModel import MaxPoolModel, EncodeDecodeModel2, AttentionModel, AttentionModel2, CombineModel, \
-    VladModel2, VladModel3, VladModel4
+from model.RGB_OPT_Model import RGB_OPT_Model, EncodeDecode_opt_Model, EncodeDecode_RGB_opt_Model
+from model.ShallowFeatureModel import ShallowFeatureModel, ShallowFeatureModel2
 from model.VladModel import VladModel
