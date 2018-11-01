@@ -4,8 +4,8 @@ import os
 from keras import backend as K
 from keras import regularizers
 from keras.applications.resnet50 import ResNet50
-from keras.layers import Masking, GRU, Input, Reshape, MaxPooling2D, multiply, Bidirectional, Lambda, Softmax, Flatten, \
-    Dropout, BatchNormalization, Activation, LSTM
+from keras.layers import Dropout, BatchNormalization, Activation, LSTM
+from keras.layers import Masking, GRU, Input, Reshape, MaxPooling2D, multiply, Bidirectional, Lambda, Softmax, Flatten
 from keras.layers.core import Dense
 from keras.layers.embeddings import Embedding
 from keras.models import Model

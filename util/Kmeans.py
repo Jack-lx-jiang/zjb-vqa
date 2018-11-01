@@ -28,9 +28,8 @@ def calculate_cluster_centers(feature_dir, feature, nb_centers, nb_feat, output_
     kmeans.fit(feat_sum)
     print('kmeans finishes')
 
-    if output_dir != None:
+    if output_dir is not None:
         path = output_dir
     else:
         path = feature_dir + '/kmeans_' + str(nb_centers) + '.npy'
     np.save(path, kmeans.cluster_centers_)
-

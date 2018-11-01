@@ -50,7 +50,8 @@ class FeatureConvModel(BaseModel):
         video_gru = Bidirectional(GRU(1024, return_sequences=True, kernel_regularizer=regularizers.l2(0.01)))(
             video_reshape)
         video_conv1 = Conv1D(1024, 7, strides=2, activation='relu', kernel_regularizer=regularizers.l2(0.01))(video_gru)
-        # video_conv1 = Conv1D(1024, 7, strides=2, activation='relu',kernel_regularizer=regularizers.l2(0.01))(video_reshape)
+        # video_conv1 = Conv1D(1024, 7, strides=2, activation='relu',kernel_regularizer=regularizers.l2(0.01))
+        # (video_reshape)
         video_bn1 = BatchNormalization()(video_conv1)
         video_pool1 = MaxPool1D(pool_size=3, strides=2)(video_bn1)
         video_conv2 = Conv1D(2048, 2, strides=1, activation='relu', padding='same',
