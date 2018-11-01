@@ -34,4 +34,3 @@ def calculate_cluster_centers(feature_dir, feature, nb_centers, nb_feat, output_
         path = feature_dir + '/kmeans_' + str(nb_centers) + '.npy'
     np.save(path, kmeans.cluster_centers_)
 
-# calculate_cluster_centers('dataset2/feature_avg_pool_activation_40_maxpool2_len100_inter15', 'activation_40_maxpool2', 128, 100)

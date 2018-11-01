@@ -201,7 +201,8 @@ class AttentionModel2(BaseModel):
         # video_encoding = GRU(1024)(video_reshape)
         # video_part = Dense(1024, kernel_regularizer=regularizers.l2(0.01), activation='tanh')(video_encoding)
         #
-        # attention_score = Dense(1, kernel_regularizer=regularizers.l2(0.01))(multiply([question_for_frame, video_part]))
+        # attention_score = Dense(1, kernel_regularizer=regularizers.l2(0.01))(
+        # multiply([question_for_frame, video_part]))
         # attention = Softmax(axis=-2)(attention_score)
         each_frame_res = TimeDistributed(
             Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.01)))(video_mask)

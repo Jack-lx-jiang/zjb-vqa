@@ -100,8 +100,6 @@ class AssembleModel(BaseModel):
             # attention_score = Dense(1)(multiply([visual_attention, video_part]))
             attention_score = Dense(2, kernel_regularizer=regularizers.l2(0.001))(
                 multiply([visual_attention, video_part]))
-            # attention_score = Dense(2, kernel_regularizer=regularizers.l2(0.001))(Activation('tanh')(multiply([visual_attention, video_part])))
-            # attention_score = Dropout(0.5)(attention_score)
             attention = Softmax(axis=-2)(attention_score)
             attention = Lambda(lambda x: K.expand_dims(x, -1))(attention)
             video_reshape = Lambda(lambda x: K.expand_dims(x, -2))(pooled_bn)
@@ -115,10 +113,7 @@ class AssembleModel(BaseModel):
 
             model = Model(inputs=[video, question], outputs=logit)
             model.summary()
-            # model = multi_gpu_model(model)
-            # model.compile(optimizer=Adadelta(0.1), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
-            # model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
-            # model.compile(optimizer=Adadelta(), loss=[focal_loss_weighted(alpha=.25, gamma=2, reverse_ans=self.dataset.reverse_ans, bias=17)], metrics=[multians_accuracy])
+
             model.compile(optimizer=Adadelta(),
                           loss=[focal_loss_with_entropy(alpha=.25, gamma=2, ans_entropy=self.dataset.ans_entropy)],
                           metrics=[multians_accuracy])

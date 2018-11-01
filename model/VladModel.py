@@ -159,7 +159,8 @@ class VladModel3(BaseModel):
         # logit = Activation('sigmoid')(multiply([ans_p, ans_mask]))
         logit = Activation('sigmoid')(ans_p)
 
-        # logit = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.01))(Concatenate()([sub_feature, question_encoding2]))
+        # logit = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.01))
+        # (Concatenate()([sub_feature, question_encoding2]))
 
         model = Model(inputs=[video, question], outputs=logit)
         model.summary()
@@ -243,7 +244,8 @@ class VladModel4(BaseModel):
 
         # attention_score = Dense(1)(multiply([visual_attention, video_part]))
         attention_score = Dense(2, kernel_regularizer=regularizers.l2(0.001))(multiply([visual_attention, video_part]))
-        # attention_score = Dense(2, kernel_regularizer=regularizers.l2(0.001))(Activation('tanh')(multiply([visual_attention, video_part])))
+        # attention_score = Dense(2, kernel_regularizer=regularizers.l2(0.001))(Activation('tanh')
+        # (multiply([visual_attention, video_part])))
         # attention_score = Dropout(0.5)(attention_score)
         attention = Softmax(axis=-2)(attention_score)
         attention = Lambda(lambda x: K.expand_dims(x, -1))(attention)
@@ -265,7 +267,8 @@ class VladModel4(BaseModel):
         video_joint_dense = Dense(2048, activation='tanh', kernel_regularizer=regularizers.l2(0.001))(video_joint)
         question_dense = Dense(2048, activation='tanh', kernel_regularizer=regularizers.l2(0.001),
                                trainable=not self.stage2)(question_encoding2)
-        # question_dense = Dense(2048, activation='tanh', kernel_regularizer=regularizers.l2(0.001))(question_encoding_ans)
+        # question_dense = Dense(2048, activation='tanh', kernel_regularizer=regularizers.l2(0.001))
+        # (question_encoding_ans)
         logit = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.001))(
             multiply([video_joint_dense, question_dense]))
         #
@@ -274,7 +277,8 @@ class VladModel4(BaseModel):
         #     video_joint)
         # question_score = Dense(2048, activation='sigmoid', kernel_regularizer=regularizers.l2(0.001))(
         #     question_encoding2)
-        # logit = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.001))(multiply([video_score, question_score]))
+        # logit = Dense(self.dataset.answer_size, activation='sigmoid', kernel_regularizer=regularizers.l2(0.001))
+        # (multiply([video_score, question_score]))
 
         model = Model(inputs=[video, question], outputs=logit)
         model.summary()
@@ -284,7 +288,9 @@ class VladModel4(BaseModel):
         model.compile(optimizer=Adadelta(),
                       loss=[focal_loss_weighted(alpha=.25, gamma=2, reverse_ans=self.dataset.ans_entropy, bias=17)],
                       metrics=[multians_accuracy])
-        # model.compile(optimizer=Adadelta(), loss=[focal_loss_with_entropy(alpha=.25, gamma=2, ans_entropy=self.dataset.ans_entropy)], metrics=[multians_accuracy])
+        # model.compile(optimizer=Adadelta(),
+        # loss=[focal_loss_with_entropy(alpha=.25, gamma=2, ans_entropy=self.dataset.ans_entropy)],
+        #  metrics=[multians_accuracy])
         if self.stage2:
             model.load_weights(self.stage1_model)
         return model
