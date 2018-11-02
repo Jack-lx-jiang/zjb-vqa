@@ -264,5 +264,3 @@ class CombineModel(BaseModel):
         # model = multi_gpu_model(model)
         model.compile(optimizer=Adadelta(), loss=[focal_loss(alpha=.25, gamma=2)], metrics=[multians_accuracy])
         return model
-
-
