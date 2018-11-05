@@ -24,8 +24,8 @@ class EncodeDecodeModel(BaseModel):
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        # self.feature_dir = self.generate_feature_dir_name()
-        self.feature_dir = 'dataset_round2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
+        self.feature_dir = self.generate_feature_dir_name()
+        # self.feature_dir = 'dataset_round2/feature_avg_pool_activation_40_maxpool2_len100_inter15'
         BaseModel.__init__(self)
 
     def build(self):
