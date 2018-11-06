@@ -6,6 +6,9 @@ This is an implement of our model for ZhejiangLab Cup Global AI Competition 2018
  
 Contest website: [https://tianchi.aliyun.com/competition/introduction.htm?raceId=231676](https://tianchi.aliyun.com/competition/introduction.htm?raceId=231676)
 
+## Final Result
+We only ranked 31st in preliminary round and 24th in semifinal round, so we were eliminated (as expected)  :cry:
+
 ## Requirement
 - One gtx 1080ti is enough to train the model
 - CUDA 8.0
